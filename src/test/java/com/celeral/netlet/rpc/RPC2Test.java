@@ -17,7 +17,6 @@ package com.celeral.netlet.rpc;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -58,8 +57,11 @@ import com.celeral.netlet.DefaultEventLoop;
 import com.celeral.netlet.codec.DefaultStatefulStreamCodec;
 import com.celeral.netlet.codec.StatefulStreamCodec;
 import com.celeral.netlet.rpc.ConnectionAgent.SimpleConnectionAgent;
+import com.celeral.netlet.rpc.RPC2Test.Authenticator.Challenge;
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
 import com.celeral.netlet.util.Throwables;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -67,7 +69,6 @@ import com.celeral.netlet.util.Throwables;
  */
 public class RPC2Test
 {
-  public static final String GREETING = "Hello World!";
   public static final String CHARSET_UTF_8 = "UTF-8";
 
   static class MySerdesProvider implements SerdesProvider
@@ -116,20 +117,18 @@ public class RPC2Test
 
       Authenticator.Introduction serverIntro = authenticator.getPublicKey(clientIntro);
 
-      try {
-        byte[] challengePhrase = GREETING.concat(alias).getBytes(CHARSET_UTF_8);
-        byte[] responsePhrase = decrypt(clientKeys.keys.get(alias).getPrivate(), authenticator.establishSession(encrypt(serverIntro.getKey(), challengePhrase)));
-        Assert.assertArrayEquals(challengePhrase, responsePhrase);
-      }
-      catch (UnsupportedEncodingException | NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException ex) {
-        throw new RuntimeException(ex);
-      }
+      PKIChallenge challenge = new PKIChallenge(alias);
+      Authenticator.Response response = authenticator.establishSession(challenge);
+      Assert.assertArrayEquals(challenge.getToken(), response.getToken());
+      logger.debug("{} == {}", challenge.getToken(), response.getToken());
     }
     finally {
       ((Closeable)Proxy.getInvocationHandler(authenticator)).close();
     }
   }
 
+  private static final Logger logger = LoggerFactory.getLogger(Authenticator.class);
+  
   public static class PKIIntroduction implements Authenticator.Introduction
   {
     final String id;
@@ -167,6 +166,83 @@ public class RPC2Test
     {
       return key;
     }
+  }
+
+  static Random random = new Random(System.currentTimeMillis());
+
+  public static byte[] getRandomBytes(int size)
+  {
+    byte[] bytes = new byte[size];
+    random.nextBytes(bytes);
+    return bytes;
+  }
+
+  public static class PKIChallenge implements Authenticator.Challenge
+  {
+    String id;
+    byte[] token;
+
+    private PKIChallenge()
+    {
+      /* jlto */
+    }
+    
+    public PKIChallenge(String id)
+    {
+      this.id = id;
+      this.token = getRandomBytes(16);
+    }
+
+    @Override
+    public String getId()
+    {
+      return id;
+    }
+
+    @Override
+    public byte[] getToken()
+    {
+      return token;
+    }
+
+  }
+
+  public static class PKIResponse implements Authenticator.Response
+  {
+    int sessionId;
+    byte[] token;
+    byte[] secret;
+
+    private PKIResponse()
+    {
+      /* jlto */
+    }
+    
+    public PKIResponse(int sessionId, byte[] token)
+    {
+      this.sessionId = sessionId;
+      this.token = token;
+      this.secret = getRandomBytes(16);
+    }
+
+    @Override
+    public byte[] getToken()
+    {
+      return token;
+    }
+
+    @Override
+    public int getSessionId()
+    {
+      return sessionId;
+    }
+
+    @Override
+    public byte[] getSecret()
+    {
+      return secret;
+    }
+
   }
 
   public interface Authenticator
@@ -266,7 +342,7 @@ public class RPC2Test
      *
      * @return serialized bytes of object of type {@link Response}
      */
-    public byte[] establishSession(@NotNull byte[] challenge);
+    public Response establishSession(@NotNull Challenge challenge);
   }
 
   public static class AuthenticatorImpl implements Authenticator
@@ -323,15 +399,9 @@ public class RPC2Test
     }
 
     @Override
-    public byte[] establishSession(byte[] challenge)
+    public Response establishSession(Challenge challenge)
     {
-      try {
-        byte[] decrypt = decrypt(master.getPrivate(), challenge);
-        return encrypt(publicKeys.get(new String(decrypt, CHARSET_UTF_8).substring(GREETING.length())), decrypt);
-      }
-      catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException | UnsupportedEncodingException ex) {
-        throw new RuntimeException(ex);
-      }
+      return new PKIResponse(0, challenge.getToken());
     }
 
   }
