@@ -144,12 +144,44 @@ public interface StatefulStreamCodec<T>
 
     public static <T> StatefulStreamCodec<T> wrap(StatefulStreamCodec<T> codec)
     {
-      return new $tatefulStreamCodec<T>(codec);
+      return new $tatefulStreamCodec<>(codec);
     }
 
     public static <T> StatefulStreamCodec<T> wrap(StatefulStreamCodec<T> codec, Object mutex)
     {
-      return new $tatefulStreamCodec<T>(codec, mutex);
+      return new $tatefulStreamCodec<>(codec, mutex);
+    }
+  }
+
+  /**
+   *
+   * @author chetan
+   */
+  public static enum MessageType
+  {
+    DATA((byte) 0), STATE((byte) 1);
+
+    public final byte getByte()
+    {
+      return value;
+    }
+
+    public static MessageType valueOf(byte value)
+    {
+      switch (value) {
+        case 0:
+          return DATA;
+        case 1:
+          return STATE;
+        default:
+          return null;
+      }
+    }
+    final byte value;
+
+    MessageType(byte value)
+    {
+      this.value = value;
     }
   }
 

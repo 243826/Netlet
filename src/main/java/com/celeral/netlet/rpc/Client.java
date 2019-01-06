@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import com.celeral.netlet.AbstractLengthPrependerClient;
 import com.celeral.netlet.codec.DefaultStatefulStreamCodec;
+import com.celeral.netlet.codec.StatefulStreamCodec;
 import com.celeral.netlet.codec.StatefulStreamCodec.DataStatePair;
 import com.celeral.netlet.util.Slice;
 
@@ -140,7 +141,7 @@ public abstract class Client<T> extends AbstractLengthPrependerClient
   public void onMessage(byte[] buffer, int offset, int size)
   {
     if (size > 0) {
-      if (buffer[offset] == DefaultStatefulStreamCodec.MessageType.STATE.getByte()) {
+      if (buffer[offset] == StatefulStreamCodec.MessageType.STATE.getByte()) {
         state = new Slice(buffer, offset, size);
         logger.trace("Idenfied state = {}", state);
       }

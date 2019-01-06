@@ -50,36 +50,6 @@ import org.slf4j.LoggerFactory;
  */
 public class DefaultStatefulStreamCodec<T> extends Kryo implements StatefulStreamCodec<T>
 {
-  public static enum MessageType
-  {
-    DATA((byte)0),
-    STATE((byte)1);
-
-    public final byte getByte()
-    {
-      return value;
-    }
-
-    public static MessageType valueOf(byte value)
-    {
-      switch (value) {
-        case 0:
-          return DATA;
-        case 1:
-          return STATE;
-        default:
-          return null;
-      }
-    }
-
-    private final byte value;
-
-    MessageType(byte value)
-    {
-      this.value = value;
-    }
-  }
-
   private final Output data;
   private final Output state;
   private final Input input;
