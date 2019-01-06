@@ -19,7 +19,6 @@ import java.util.Arrays;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.esotericsoftware.kryo.Serializer;
 import com.esotericsoftware.kryo.serializers.FieldSerializer.Bind;
 import com.esotericsoftware.kryo.serializers.JavaSerializer;
 
@@ -41,7 +40,7 @@ import com.celeral.netlet.util.Slice;
 public abstract class Client<T> extends AbstractLengthPrependerClient
 {
   Slice state;
-  private final DefaultStatefulStreamCodec<Object> serdes;
+  private StatefulStreamCodec<Object> serdes;
   private transient Executor executors;
 
   private static class DirectExecutor implements Executor
@@ -62,17 +61,14 @@ public abstract class Client<T> extends AbstractLengthPrependerClient
   {
     this.executors = executors;
 
-    serdes = new DefaultStatefulStreamCodec<>();
+    DefaultStatefulStreamCodec<Object> codec = new DefaultStatefulStreamCodec<>();
     /* setup the classes that we know about before hand */
-    serdes.register(Ack.class);
-    serdes.register(RPC.class);
-    serdes.register(ExtendedRPC.class);
-    serdes.register(RR.class);
-  }
+    codec.register(Ack.class);
+    codec.register(RPC.class);
+    codec.register(ExtendedRPC.class);
+    codec.register(RR.class);
 
-  public void addDefaultSerializer(Class<?> type, Serializer<?> serializer)
-  {
-    serdes.register(type, serializer);
+    this.serdes = codec;
   }
 
   public abstract void onMessage(T message);
@@ -90,8 +86,10 @@ public abstract class Client<T> extends AbstractLengthPrependerClient
     public void run()
     {
       DataStatePair pair;
-      synchronized (serdes) {
-        pair = serdes.toDataStatePair(object);
+
+      StatefulStreamCodec<Object> codec = serdes;
+      synchronized (codec) {
+        pair = codec.toDataStatePair(object);
       }
       writeObject(pair);
     }
@@ -126,14 +124,33 @@ public abstract class Client<T> extends AbstractLengthPrependerClient
     public void run()
     {
       Object object;
-      synchronized (serdes) {
-        object = serdes.fromDataStatePair(pair);
+
+      StatefulStreamCodec<Object> codec = serdes;
+
+      synchronized (codec) {
+        object = codec.fromDataStatePair(pair);
       }
 
       @SuppressWarnings("unchecked")
       final T name = (T)object;
       onMessage(name);
     }
+  }
+
+  /**
+   * @return the serdes
+   */
+  public StatefulStreamCodec<Object> getSerdes()
+  {
+    return serdes;
+  }
+
+  /**
+   * @param serdes the serdes to set
+   */
+  public void setSerdes(StatefulStreamCodec<Object> serdes)
+  {
+    this.serdes = serdes;
   }
 
   @Override

@@ -45,7 +45,9 @@ import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
 
+import com.esotericsoftware.kryo.serializers.FieldSerializer;
 import com.esotericsoftware.kryo.serializers.JavaSerializer;
 
 import org.junit.Assert;
@@ -53,6 +55,8 @@ import org.junit.Test;
 
 import com.celeral.netlet.AbstractServer;
 import com.celeral.netlet.DefaultEventLoop;
+import com.celeral.netlet.codec.DefaultStatefulStreamCodec;
+import com.celeral.netlet.codec.StatefulStreamCodec;
 import com.celeral.netlet.rpc.ConnectionAgent.SimpleConnectionAgent;
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
 import com.celeral.netlet.util.Throwables;
@@ -65,6 +69,25 @@ public class RPC2Test
 {
   public static final String GREETING = "Hello World!";
   public static final String CHARSET_UTF_8 = "UTF-8";
+
+  static class MySerdesProvider implements SerdesProvider
+  {
+    @Override
+    public StatefulStreamCodec<Object> newSerdes()
+    {
+      DefaultStatefulStreamCodec<Object> codec = new DefaultStatefulStreamCodec<>();
+      try {
+        codec.register(Class.forName("sun.security.rsa.RSAPublicKeyImpl"), new JavaSerializer());
+        return codec;
+      }
+      catch (ClassNotFoundException ex) {
+        throw Throwables.throwFormatted(ex, IllegalStateException.class,
+                                        "Unable to initialize the serializer/deserializer!");
+      }
+    }
+  }
+
+  static MySerdesProvider serdesProvider = new MySerdesProvider();
 
   public static byte[] encrypt(PublicKey key, byte[] plaintext) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException
   {
@@ -82,16 +105,20 @@ public class RPC2Test
 
   private void authenticate(ProxyClient client, Identity identity) throws IOException
   {
-    Authenticator authenticator = client.create(identity, Authenticator.class);
+    Authenticator authenticator = client.create(identity,
+                                                Authenticator.class.getClassLoader(),
+                                                new Class<?>[]{Authenticator.class},
+                                                serdesProvider
+    );
     try {
       final String alias = Integer.toString(new Random(System.currentTimeMillis()).nextInt(clientKeys.keys.size()));
+      final PKIIntroduction clientIntro = new PKIIntroduction("0.0.00", alias, clientKeys.keys.get(alias).getPublic());
 
-      PublicKey clientKey = clientKeys.keys.get(alias).getPublic();
-      PublicKey serverKey = authenticator.getPublicKey(alias, clientKey);
+      Authenticator.Introduction serverIntro = authenticator.getPublicKey(clientIntro);
 
       try {
         byte[] challengePhrase = GREETING.concat(alias).getBytes(CHARSET_UTF_8);
-        byte[] responsePhrase = decrypt(clientKeys.keys.get(alias).getPrivate(), authenticator.challenge(encrypt(serverKey, challengePhrase)));
+        byte[] responsePhrase = decrypt(clientKeys.keys.get(alias).getPrivate(), authenticator.establishSession(encrypt(serverIntro.getKey(), challengePhrase)));
         Assert.assertArrayEquals(challengePhrase, responsePhrase);
       }
       catch (UnsupportedEncodingException | NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException ex) {
@@ -103,11 +130,143 @@ public class RPC2Test
     }
   }
 
-  public static interface Authenticator
+  public static class PKIIntroduction implements Authenticator.Introduction
   {
-    PublicKey getPublicKey(String alias, PublicKey clientPublicKey);
+    final String id;
+    final String version;
 
-    byte[] challenge(byte[] encryptedId);
+    @FieldSerializer.Bind(JavaSerializer.class)
+    final PublicKey key;
+
+    private PKIIntroduction()
+    {
+      this(null, null, null);
+    }
+
+    public PKIIntroduction(String version, String id, PublicKey publicKey)
+    {
+      this.version = version;
+      this.id = id;
+      this.key = publicKey;
+    }
+
+    @Override
+    public String getId()
+    {
+      return id;
+    }
+
+    @Override
+    public String getVersion()
+    {
+      return version;
+    }
+
+    @Override
+    public PublicKey getKey()
+    {
+      return key;
+    }
+  }
+
+  public interface Authenticator
+  {
+    interface Introduction
+    {
+      /**
+       * Id of the entity which is being introduced using this object.
+       *
+       * @return the id of the entity represented
+       */
+      String getId();
+
+      /**
+       * The semantic version of the protocol the entity can talk.
+       *
+       * @return a version string in semver format
+       */
+      String getVersion();
+
+      /**
+       * Public key of the entity.
+       * By presenting the public key, it's being claimed that the data encrypted with the public key
+       * can be decrypted by the entity which presents this public key. With the current limitations
+       * of the technology it means that the entity possesses the corresponding private key as well.
+       *
+       * @return
+       */
+      PublicKey getKey();
+    }
+
+    /**
+     * Objects of this type are presented by the entity wishing to establish a trusted secure session
+     * with other entities. The serialized bytes of this object are encrypted with the public key of
+     * the entity on the other end. This way the other entity will only be able to decrypt the token
+     * if it has the private key for the public key it previously presented.
+     */
+    interface Challenge
+    {
+      /**
+       * Gets the id of the entity which wishes to establish the session. This id is used to locate
+       * the public key of the client so that the response to the client can be encrypted.
+       *
+       * @return id of the entity initiating request for the session
+       */
+      String getId();
+
+      /**
+       * Randomly generated token either 16 bytes long or 32 bytes long which
+       *
+       * @return random sequence of bytes
+       */
+      @Size(min = 16, max = 32)
+      byte[] getToken();
+    }
+
+    /**
+     * Objects of this type are presented by the entity entering into a trusted secure session
+     * with the entities which expressed interest to create such a session. The serialized bytes of this
+     * object are encrypted with the public key of the entity on the other end. This way the other entity
+     * will only be able to decrypt the token if has the private key for the public key it previously
+     * presented to introduce itself.
+     */
+    interface Response
+    {
+      /**
+       * Decrypted tokens
+       *
+       * @return
+       */
+      byte[] getToken();
+
+      public int getSessionId();
+
+      /**
+       * Session identifier which can be used to encrypt the data for the session.
+       *
+       * @return
+       */
+      byte[] getSecret();
+    }
+
+    /**
+     * Introduce the client to the server using the publickey and id to assist with fast identification.
+     *
+     * @param client introduction of the caller
+     *
+     * @return introduction of the callee if it recognizes the caller and wants to chat with it
+     */
+    public Introduction getPublicKey(Introduction client);
+
+    /**
+     * Prove the identity of the client to the server and vice a versa thus establishing trust and creating a secure session for communication.
+     * The client sends the server a payload which is encrypted by the
+     *
+     * @param challenge serialized bytes of object of type {@link Challenge}
+     *
+     * @return serialized bytes of object of type {@link Response}
+     */
+    public byte[] establishSession(@NotNull byte[] challenge);
   }
 
   public static class AuthenticatorImpl implements Authenticator
@@ -146,33 +305,33 @@ public class RPC2Test
       publicKeys.put(alias, entry);
     }
 
-    @Override
-    public PublicKey getPublicKey(@NotNull String alias, @NotNull PublicKey clientPublicKey)
+    private KeyPair createMasterKeys() throws NoSuchAlgorithmException
     {
-      if (clientPublicKey.equals(publicKeys.get(alias))) {
-        return master.getPublic();
+      KeyPairGenerator rsaGenerator = KeyPairGenerator.getInstance("RSA");
+      rsaGenerator.initialize(2048);
+      return rsaGenerator.generateKeyPair();
+    }
+
+    @Override
+    public Introduction getPublicKey(Introduction client)
+    {
+      if (client.getKey().equals(publicKeys.get(client.getId()))) {
+        return new PKIIntroduction("0.0.00", "master", master.getPublic());
       }
 
       return null;
     }
 
     @Override
-    public byte[] challenge(byte[] encryptedId)
+    public byte[] establishSession(byte[] challenge)
     {
       try {
-        byte[] decrypt = decrypt(master.getPrivate(), encryptedId);
+        byte[] decrypt = decrypt(master.getPrivate(), challenge);
         return encrypt(publicKeys.get(new String(decrypt, CHARSET_UTF_8).substring(GREETING.length())), decrypt);
       }
       catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | IllegalBlockSizeException | BadPaddingException | UnsupportedEncodingException ex) {
         throw new RuntimeException(ex);
       }
-    }
-
-    private KeyPair createMasterKeys() throws NoSuchAlgorithmException
-    {
-      KeyPairGenerator rsaGenerator = KeyPairGenerator.getInstance("RSA");
-      rsaGenerator.initialize(2048);
-      return rsaGenerator.generateKeyPair();
     }
 
   }
@@ -234,7 +393,7 @@ public class RPC2Test
           return authenticatorImpl;
         }
       }, ExternalizableMethodSerializer.SINGLETON, executor);
-      executingClient.addDefaultSerializer(sun.security.rsa.RSAPublicKeyImpl.class, new JavaSerializer());
+      executingClient.setSerdes(serdesProvider.newSerdes());
       return executingClient;
     }
 
@@ -274,7 +433,6 @@ public class RPC2Test
                                                TimeoutPolicy.NO_TIMEOUT_POLICY,
                                                ExternalizableMethodSerializer.SINGLETON,
                                                executor);
-          client.addDefaultSerializer(sun.security.rsa.RSAPublicKeyImpl.class, new JavaSerializer());
           Identity identity = new Identity();
           identity.name = "authenticator";
           authenticate(client, identity);

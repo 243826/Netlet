@@ -21,7 +21,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -32,8 +31,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import com.esotericsoftware.kryo.Serializer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -144,15 +141,15 @@ public class ProxyClient
   }
 
   @SuppressWarnings("unchecked")
-  public <T> T create(Object identifier, ClassLoader loader, Class<?>[] interfaces)
+  public <T> T create(Object identifier, ClassLoader loader, Class<?>[] interfaces, SerdesProvider provider)
   {
     // we can pass the interfaces to the InvocationHandlerImpl, and it can make sure that all the interfaces are supported
-    return (T)Proxy.newProxyInstance(loader, interfaces, new InvocationHandlerImpl(identifier));
+    return (T)Proxy.newProxyInstance(loader, interfaces, new InvocationHandlerImpl(identifier, provider));
   }
 
   public <T> T create(Object identifier, Class<T> iface)
   {
-    return create(identifier, Thread.currentThread().getContextClassLoader(), new Class<?>[]{iface});
+    return create(identifier, Thread.currentThread().getContextClassLoader(), new Class<?>[]{iface}, null);
   }
 
   private class InvocationHandlerImpl implements InvocationHandler, Closeable
@@ -160,11 +157,13 @@ public class ProxyClient
     final Object identity;
     final ConcurrentLinkedQueue<RPCFuture> futureResponses;
     DelegatingClient client;
+    final SerdesProvider serdesProvider;
 
-    InvocationHandlerImpl(Object id)
+    InvocationHandlerImpl(Object id, SerdesProvider provider)
     {
       identity = id;
       futureResponses = new ConcurrentLinkedQueue<>();
+      serdesProvider = provider;
     }
 
     @Override
@@ -173,8 +172,8 @@ public class ProxyClient
       do {
         if (client == null) {
           client = new DelegatingClient(futureResponses, methodSerializer, executors);
-          for (Map.Entry<Class<?>, Serializer<?>> entry : serializers.entrySet()) {
-            client.addDefaultSerializer(entry.getKey(), entry.getValue());
+          if (serdesProvider != null) {
+            client.setSerdes(serdesProvider.newSerdes());
           }
           agent.connect(client);
         }
@@ -209,13 +208,6 @@ public class ProxyClient
       }
     }
 
-  }
-
-  private LinkedHashMap<Class<?>, Serializer<?>> serializers = new LinkedHashMap<>();
-
-  public void addDefaultSerializer(Class<?> type, Serializer<?> serializer)
-  {
-    serializers.put(type, serializer);
   }
 
   public static class DelegatingClient extends Client<RR>
