@@ -152,7 +152,7 @@ public class ProxyClient
     return create(identifier, Thread.currentThread().getContextClassLoader(), new Class<?>[]{iface}, null);
   }
 
-  private class InvocationHandlerImpl implements InvocationHandler, Closeable
+  public class InvocationHandlerImpl implements InvocationHandler, Closeable
   {
     final Object identity;
     final ConcurrentLinkedQueue<RPCFuture> futureResponses;
@@ -208,6 +208,11 @@ public class ProxyClient
       }
     }
 
+    public DelegatingClient getClient()
+    {
+      return client;
+    }
+    
   }
 
   public static class DelegatingClient extends Client<RR>

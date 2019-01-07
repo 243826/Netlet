@@ -85,13 +85,7 @@ public abstract class Client<T> extends AbstractLengthPrependerClient
     @Override
     public void run()
     {
-      DataStatePair pair;
-
-      StatefulStreamCodec<Object> codec = serdes;
-      synchronized (codec) {
-        pair = codec.toDataStatePair(object);
-      }
-      writeObject(pair);
+      writeObject(serdes.toDataStatePair(object));
     }
   }
 
@@ -103,14 +97,17 @@ public abstract class Client<T> extends AbstractLengthPrependerClient
   private synchronized void writeObject(DataStatePair pair)
   {
     if (pair.state != null) {
-      logger.trace("sending state = {}", pair.state);
       write(pair.state.buffer, pair.state.offset, pair.state.length);
     }
 
-    logger.trace("sending data = {}", pair.data);
     write(pair.data.buffer, pair.data.offset, pair.data.length);
   }
 
+  public void execute(Runnable runnable)
+  {
+    executors.execute(runnable);            
+  }
+  
   class Receiver implements Runnable
   {
     DataStatePair pair;
@@ -123,17 +120,9 @@ public abstract class Client<T> extends AbstractLengthPrependerClient
     @Override
     public void run()
     {
-      Object object;
-
-      StatefulStreamCodec<Object> codec = serdes;
-
-      synchronized (codec) {
-        object = codec.fromDataStatePair(pair);
-      }
-
       @SuppressWarnings("unchecked")
-      final T name = (T)object;
-      onMessage(name);
+      T object = (T)serdes.fromDataStatePair(pair);
+      onMessage(object);
     }
   }
 
@@ -160,14 +149,12 @@ public abstract class Client<T> extends AbstractLengthPrependerClient
     if (size > 0) {
       if (buffer[offset] == StatefulStreamCodec.MessageType.STATE.getByte()) {
         state = new Slice(buffer, offset, size);
-        logger.trace("Idenfied state = {}", state);
       }
       else {
         final DataStatePair pair = new DataStatePair();
         pair.state = state;
         state = null;
         pair.data = new Slice(buffer, offset, size);
-        logger.trace("Identified data = {}", pair.data);
         executors.execute(new Receiver(pair));
       }
     }

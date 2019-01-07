@@ -15,7 +15,6 @@
  */
 package com.celeral.netlet.rpc;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
@@ -23,14 +22,13 @@ import java.net.SocketAddress;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.security.InvalidKeyException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.util.HashMap;
 import java.util.Map.Entry;
@@ -39,10 +37,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
@@ -52,16 +46,20 @@ import com.esotericsoftware.kryo.serializers.JavaSerializer;
 import org.junit.Assert;
 import org.junit.Test;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.celeral.netlet.AbstractServer;
 import com.celeral.netlet.DefaultEventLoop;
+import com.celeral.netlet.codec.CipherStatefulStreamCodec;
 import com.celeral.netlet.codec.DefaultStatefulStreamCodec;
 import com.celeral.netlet.codec.StatefulStreamCodec;
+import com.celeral.netlet.codec.StatefulStreamCodec.Synchronized;
 import com.celeral.netlet.rpc.ConnectionAgent.SimpleConnectionAgent;
 import com.celeral.netlet.rpc.RPC2Test.Authenticator.Challenge;
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
 import com.celeral.netlet.util.Throwables;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.celeral.utils.NamedThreadFactory;
 
 /**
  *
@@ -79,7 +77,7 @@ public class RPC2Test
       DefaultStatefulStreamCodec<Object> codec = new DefaultStatefulStreamCodec<>();
       try {
         codec.register(Class.forName("sun.security.rsa.RSAPublicKeyImpl"), new JavaSerializer());
-        return codec;
+        return Synchronized.wrap(new CipherStatefulStreamCodec<>(codec, null, null));
       }
       catch (ClassNotFoundException ex) {
         throw Throwables.throwFormatted(ex, IllegalStateException.class,
@@ -90,20 +88,6 @@ public class RPC2Test
 
   static MySerdesProvider serdesProvider = new MySerdesProvider();
 
-  public static byte[] encrypt(PublicKey key, byte[] plaintext) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException
-  {
-    Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA1AndMGF1Padding");
-    cipher.init(Cipher.ENCRYPT_MODE, key);
-    return cipher.doFinal(plaintext);
-  }
-
-  public static byte[] decrypt(PrivateKey key, byte[] ciphertext) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException
-  {
-    Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA1AndMGF1Padding");
-    cipher.init(Cipher.DECRYPT_MODE, key);
-    return cipher.doFinal(ciphertext);
-  }
-
   private void authenticate(ProxyClient client, Identity identity) throws IOException
   {
     Authenticator authenticator = client.create(identity,
@@ -111,24 +95,28 @@ public class RPC2Test
                                                 new Class<?>[]{Authenticator.class},
                                                 serdesProvider
     );
-    try {
+    try (ProxyClient.InvocationHandlerImpl impl = ProxyClient.InvocationHandlerImpl.class.cast(Proxy.getInvocationHandler(authenticator))) {
       final String alias = Integer.toString(new Random(System.currentTimeMillis()).nextInt(clientKeys.keys.size()));
-      final PKIIntroduction clientIntro = new PKIIntroduction("0.0.00", alias, clientKeys.keys.get(alias).getPublic());
+      final KeyPair clientKeyPair = clientKeys.keys.get(alias);
 
+      final PKIIntroduction clientIntro = new PKIIntroduction("0.0.00", alias, clientKeyPair.getPublic());
       Authenticator.Introduction serverIntro = authenticator.getPublicKey(clientIntro);
+
+      StatefulStreamCodec<Object> unwrapped = Synchronized.unwrapIfWrapped(impl.client.getSerdes());
+      if (unwrapped instanceof CipherStatefulStreamCodec) {
+        CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrapped;
+        serdes.initCipher(serverIntro.getKey(), clientKeyPair.getPrivate());
+      }
 
       PKIChallenge challenge = new PKIChallenge(alias);
       Authenticator.Response response = authenticator.establishSession(challenge);
       Assert.assertArrayEquals(challenge.getToken(), response.getToken());
       logger.debug("{} == {}", challenge.getToken(), response.getToken());
     }
-    finally {
-      ((Closeable)Proxy.getInvocationHandler(authenticator)).close();
-    }
   }
 
   private static final Logger logger = LoggerFactory.getLogger(Authenticator.class);
-  
+
   public static class PKIIntroduction implements Authenticator.Introduction
   {
     final String id;
@@ -168,7 +156,7 @@ public class RPC2Test
     }
   }
 
-  static Random random = new Random(System.currentTimeMillis());
+  static SecureRandom random = new SecureRandom();
 
   public static byte[] getRandomBytes(int size)
   {
@@ -181,16 +169,18 @@ public class RPC2Test
   {
     String id;
     byte[] token;
+    private byte[] iv;
 
     private PKIChallenge()
     {
       /* jlto */
     }
-    
+
     public PKIChallenge(String id)
     {
       this.id = id;
       this.token = getRandomBytes(16);
+      this.iv = getRandomBytes(12);
     }
 
     @Override
@@ -205,6 +195,11 @@ public class RPC2Test
       return token;
     }
 
+    @Override
+    public byte[] getInitializationVector()
+    {
+      return iv;
+    }
   }
 
   public static class PKIResponse implements Authenticator.Response
@@ -217,7 +212,7 @@ public class RPC2Test
     {
       /* jlto */
     }
-    
+
     public PKIResponse(int sessionId, byte[] token)
     {
       this.sessionId = sessionId;
@@ -297,6 +292,8 @@ public class RPC2Test
        */
       @Size(min = 16, max = 32)
       byte[] getToken();
+
+      byte[] getInitializationVector();
     }
 
     /**
@@ -389,6 +386,7 @@ public class RPC2Test
     }
 
     @Override
+    @Analysis(post = PKISwitch.class)
     public Introduction getPublicKey(Introduction client)
     {
       if (client.getKey().equals(publicKeys.get(client.getId()))) {
@@ -439,6 +437,30 @@ public class RPC2Test
   {
     private final Executor executor;
 
+    public static class CipherExecutingClient extends ExecutingClient
+    {
+      public CipherExecutingClient(Executor executor)
+      {
+        super(new Bean<Identity>()
+        {
+          AuthenticatorImpl authenticatorImpl = new AuthenticatorImpl();
+
+          {
+            for (Entry<String, KeyPair> entry : clientKeys.keys.entrySet()) {
+              authenticatorImpl.add(entry.getKey(), entry.getValue().getPublic());
+            }
+          }
+
+          @Override
+          public Object get(Identity identifier)
+          {
+            return authenticatorImpl;
+          }
+        }, ExternalizableMethodSerializer.SINGLETON, executor);
+        super.setSerdes(serdesProvider.newSerdes());
+      }
+    }
+
     public Server(Executor executor)
     {
       this.executor = executor;
@@ -447,24 +469,7 @@ public class RPC2Test
     @Override
     public ClientListener getClientConnection(SocketChannel client, ServerSocketChannel server)
     {
-      ExecutingClient executingClient = new ExecutingClient(new Bean<Identity>()
-      {
-        AuthenticatorImpl authenticatorImpl = new AuthenticatorImpl();
-
-        {
-          for (Entry<String, KeyPair> entry : clientKeys.keys.entrySet()) {
-            authenticatorImpl.add(entry.getKey(), entry.getValue().getPublic());
-          }
-        }
-
-        @Override
-        public Object get(Identity identifier)
-        {
-          return authenticatorImpl;
-        }
-      }, ExternalizableMethodSerializer.SINGLETON, executor);
-      executingClient.setSerdes(serdesProvider.newSerdes());
-      return executingClient;
+      return new CipherExecutingClient(executor);
     }
 
     @Override
@@ -483,12 +488,14 @@ public class RPC2Test
   @Test
   public void testAuthenticator() throws IOException, InterruptedException
   {
-    ExecutorService executor = Executors.newFixedThreadPool(2);
+    ExecutorService serverExecutor = Executors.newFixedThreadPool(2, new NamedThreadFactory(new ThreadGroup("server")));
+    ExecutorService clientExecutor = Executors.newFixedThreadPool(2, new NamedThreadFactory(new ThreadGroup("client")));
+
     try {
       DefaultEventLoop el = DefaultEventLoop.createEventLoop("rpc");
       el.start();
       try {
-        Server server = new Server(executor);
+        Server server = new Server(serverExecutor);
         el.start(new InetSocketAddress(0), server);
 
         try {
@@ -502,7 +509,7 @@ public class RPC2Test
           ProxyClient client = new ProxyClient(new SimpleConnectionAgent(si, el),
                                                TimeoutPolicy.NO_TIMEOUT_POLICY,
                                                ExternalizableMethodSerializer.SINGLETON,
-                                               executor);
+                                               clientExecutor);
           Identity identity = new Identity();
           identity.name = "authenticator";
           authenticate(client, identity);
@@ -517,7 +524,7 @@ public class RPC2Test
 
     }
     finally {
-      executor.shutdown();
+      serverExecutor.shutdown();
     }
   }
 

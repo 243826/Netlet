@@ -193,7 +193,7 @@ public class DefaultStatefulStreamCodec<T> extends Kryo implements StatefulStrea
   {
     int firstAvailableRegistrationId;
     int nextAvailableRegistrationId;
-    final ArrayList<ClassIdPair> pairs = new ArrayList<ClassIdPair>();
+    final ArrayList<ClassIdPair> pairs = new ArrayList<>();
 
     public void unregister(int classId)
     {

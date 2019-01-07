@@ -139,7 +139,6 @@ public interface StatefulStreamCodec<T>
           codec.resetState();
         }
       }
-
     }
 
     public static <T> StatefulStreamCodec<T> wrap(StatefulStreamCodec<T> codec)
@@ -151,6 +150,25 @@ public interface StatefulStreamCodec<T>
     {
       return new $tatefulStreamCodec<>(codec, mutex);
     }
+
+    public static <T> StatefulStreamCodec<T> unwrapIfWrapped(StatefulStreamCodec<T> codec)
+    {
+      while (codec instanceof $tatefulStreamCodec) {
+        codec = (($tatefulStreamCodec<T>)codec).codec;
+      }
+
+      return codec;
+    }
+
+    public Object getMutexIfWrapped(StatefulStreamCodec<?> codec)
+    {
+      if (codec instanceof $tatefulStreamCodec) {
+        return (($tatefulStreamCodec<?>)codec).mutex;
+      }
+
+      return null;
+    }
+
   }
 
   /**
@@ -159,7 +177,7 @@ public interface StatefulStreamCodec<T>
    */
   public static enum MessageType
   {
-    DATA((byte) 0), STATE((byte) 1);
+    DATA((byte)0), STATE((byte)1);
 
     public final byte getByte()
     {

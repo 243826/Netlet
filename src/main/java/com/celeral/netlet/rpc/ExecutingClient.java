@@ -22,6 +22,9 @@ import java.util.concurrent.Executor;
 
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
 import com.celeral.netlet.util.Throwables;
+import java.lang.annotation.Annotation;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -54,11 +57,11 @@ public class ExecutingClient extends Client<Client.RPC>
   public void onMessage(Client.RPC message)
   {
     Client.RR rr;
+    Method method = null;
 
     final Object object = bean.get(message.identifier);
     Integer methodId = message.methodId;
     try {
-      Method method;
       if (message instanceof Client.ExtendedRPC) {
         method = methodSerializer.fromSerializable(((Client.ExtendedRPC)message).serializableMethod);
         if (method == null) {
@@ -85,7 +88,8 @@ public class ExecutingClient extends Client<Client.RPC>
           }
 
           synchronized (methodId) {
-            /* checking the method again, takes care of a race condition
+            /* 
+             * checking the method again, takes care of a race condition
              * between the time method was not found by this code and
              * another thread put the method and sent the signal.
              */
@@ -113,6 +117,30 @@ public class ExecutingClient extends Client<Client.RPC>
     }
 
     send(rr);
+    
+    if (method != null) {
+      try {
+        method = object.getClass().getMethod(method.getName(), method.getParameterTypes());
+        Analysis annotation = method.getAnnotation(Analysis.class);
+        if (annotation != null) {
+          Class<? extends PostAnalyzer> post = annotation.post();
+          if (post != null) {
+            try {
+              post.getDeclaredConstructor().newInstance().analyze(this, object, method, message.args, rr.response, rr.exception);
+            }
+            catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
+              throw new RuntimeException(ex);
+            }
+          }
+        }
+      }
+      catch (NoSuchMethodException ex) {
+        // we do not do anything!
+                throw new RuntimeException(ex);
+
+      }
+    }
+    
   }
 
 }
