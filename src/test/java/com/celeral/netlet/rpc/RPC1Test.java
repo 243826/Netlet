@@ -46,7 +46,7 @@ import com.celeral.netlet.util.Throwables;
  */
 public class RPC1Test
 {
-  public static interface Hello
+  public interface Hello
   {
     void greet();
 

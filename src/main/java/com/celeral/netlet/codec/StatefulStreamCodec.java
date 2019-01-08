@@ -33,7 +33,7 @@ public interface StatefulStreamCodec<T>
   /**
    * A convenience class which is used to hold 2 different values associated with each serialize/deserialize operation.
    */
-  public class DataStatePair
+  class DataStatePair
   {
     /**
      * This byte array corresponds to serialized form of the tuple of type T.
@@ -97,7 +97,7 @@ public interface StatefulStreamCodec<T>
    */
   void resetState();
 
-  static class Synchronized
+  class Synchronized
   {
     static class $tatefulStreamCodec<T> implements com.celeral.netlet.codec.StatefulStreamCodec<T>
     {
@@ -175,7 +175,7 @@ public interface StatefulStreamCodec<T>
    *
    * @author chetan
    */
-  public static enum MessageType
+  enum MessageType
   {
     DATA((byte)0), STATE((byte)1);
 

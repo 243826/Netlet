@@ -56,7 +56,6 @@ import com.celeral.netlet.codec.DefaultStatefulStreamCodec;
 import com.celeral.netlet.codec.StatefulStreamCodec;
 import com.celeral.netlet.codec.StatefulStreamCodec.Synchronized;
 import com.celeral.netlet.rpc.ConnectionAgent.SimpleConnectionAgent;
-import com.celeral.netlet.rpc.RPC2Test.Authenticator.Challenge;
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
 import com.celeral.netlet.util.Throwables;
 import com.celeral.utils.NamedThreadFactory;
@@ -93,9 +92,8 @@ public class RPC2Test
     Authenticator authenticator = client.create(identity,
                                                 Authenticator.class.getClassLoader(),
                                                 new Class<?>[]{Authenticator.class},
-                                                serdesProvider
-    );
-    try (ProxyClient.InvocationHandlerImpl impl = ProxyClient.InvocationHandlerImpl.class.cast(Proxy.getInvocationHandler(authenticator))) {
+                                                serdesProvider);
+    try (ProxyClient.InvocationHandlerImpl impl = (ProxyClient.InvocationHandlerImpl) Proxy.getInvocationHandler(authenticator)) {
       final String alias = Integer.toString(new Random(System.currentTimeMillis()).nextInt(clientKeys.keys.size()));
       final KeyPair clientKeyPair = clientKeys.keys.get(alias);
 
@@ -312,7 +310,7 @@ public class RPC2Test
        */
       byte[] getToken();
 
-      public int getSessionId();
+      int getSessionId();
 
       /**
        * Session identifier which can be used to encrypt the data for the session.
@@ -329,7 +327,7 @@ public class RPC2Test
      *
      * @return introduction of the callee if it recognizes the caller and wants to chat with it
      */
-    public Introduction getPublicKey(Introduction client);
+    Introduction getPublicKey(Introduction client);
 
     /**
      * Prove the identity of the client to the server and vice a versa thus establishing trust and creating a secure session for communication.
@@ -339,7 +337,7 @@ public class RPC2Test
      *
      * @return serialized bytes of object of type {@link Response}
      */
-    public Response establishSession(@NotNull Challenge challenge);
+    Response establishSession(@NotNull Challenge challenge);
   }
 
   public static class AuthenticatorImpl implements Authenticator
@@ -386,7 +384,7 @@ public class RPC2Test
     }
 
     @Override
-    @Analysis(post = PKISwitch.class)
+    @Analyses({@Analyses.Analysis(post = PKICalleeSwitch.class, domain = Analyses.Analysis.Domain.CALLEE)})
     public Introduction getPublicKey(Introduction client)
     {
       if (client.getKey().equals(publicKeys.get(client.getId()))) {

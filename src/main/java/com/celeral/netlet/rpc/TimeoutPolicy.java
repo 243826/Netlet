@@ -66,7 +66,7 @@ public interface TimeoutPolicy
 
   }
 
-  public static final TimeoutPolicy NO_TIMEOUT_POLICY = new SimpleTimeoutPolicy(Long.MAX_VALUE)
+  TimeoutPolicy NO_TIMEOUT_POLICY = new SimpleTimeoutPolicy(Long.MAX_VALUE)
   {
     @Override
     public void setTimeout(long timeout)

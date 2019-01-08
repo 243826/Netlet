@@ -37,7 +37,7 @@ public interface Listener
    * @param exception The exception that was caught by the networking library.
    * @param eventloop The eventloop with which the connection is registered.
    */
-  public void handleException(Exception exception, EventLoop eventloop);
+  void handleException(Exception exception, EventLoop eventloop);
 
   /**
    * Notify the listener as soon as the underlying connection is registered with
@@ -51,7 +51,7 @@ public interface Listener
    *
    * @param key key associated with selectable channel supporting this connection.
    */
-  public void registered(SelectionKey key);
+  void registered(SelectionKey key);
 
   /**
    * Notify the listener that underlying channel has ceased tracking various events.
@@ -61,7 +61,7 @@ public interface Listener
    *
    * @param key key associated with the selectable channel supporting this connection.
    */
-  public void unregistered(SelectionKey key);
+  void unregistered(SelectionKey key);
 
   /**
    * Interface that listener who is interested in server events must implement.
@@ -69,7 +69,7 @@ public interface Listener
    * provide a mechanism to register listeners which process the events on each
    * incoming connection.
    */
-  public static interface ServerListener extends Listener
+  interface ServerListener extends Listener
   {
     /**
      * Get a listener which will process the events coming on the newly connected client
@@ -79,7 +79,7 @@ public interface Listener
      * @param server Socket channel associated with the server connection which accepted the client.
      * @return
      */
-    public ClientListener getClientConnection(SocketChannel client, ServerSocketChannel server);
+    ClientListener getClientConnection(SocketChannel client, ServerSocketChannel server);
 
   }
 
@@ -90,7 +90,7 @@ public interface Listener
    * The second type is needed when a server accepts a connection from a remote client.
    * The local port of this remote client is also treated as a client.
    */
-  public static interface ClientListener extends Listener
+  interface ClientListener extends Listener
   {
     /**
      * Callback to notify the listener that underlying channel has some data to read.
@@ -102,7 +102,7 @@ public interface Listener
      *
      * @throws IOException
      */
-    public void read() throws IOException;
+    void read() throws IOException;
 
     /**
      * Callback to notify that listener that underlying channel has room to write more data.
@@ -111,26 +111,26 @@ public interface Listener
      *
      * @throws IOException
      */
-    public void write() throws IOException;
+    void write() throws IOException;
 
     /**
      * When a connection is established between client and the server, listeners at both ends
      * of such a connection are notified.
      */
-    public void connected();
+    void connected();
 
     /**
      * When the connections between two clients ceases to exist, listeners at both the ends
      * are notified of this event.
      */
-    public void disconnected();
+    void disconnected();
 
   }
 
   /**
    * Listener which ignores all the networking events and exceptions.
    */
-  public static final Listener NOOP_LISTENER = new Listener()
+  Listener NOOP_LISTENER = new Listener()
   {
     @Override
     public void handleException(Exception cce, EventLoop el)
@@ -151,7 +151,7 @@ public interface Listener
   /**
    * Client listener which ignores all the client events and exceptions.
    */
-  public static final Listener NOOP_CLIENT_LISTENER = new ClientListener()
+  Listener NOOP_CLIENT_LISTENER = new ClientListener()
   {
     @Override
     public void read() throws IOException
@@ -200,7 +200,7 @@ public interface Listener
    * disconnected. This listener ensures that only the writes requested before disconnection
    * request are processed and others are rejected.
    */
-  static class DisconnectingListener implements ClientListener
+  class DisconnectingListener implements ClientListener
   {
     private final ClientListener previous;
     private final SelectionKey key;

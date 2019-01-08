@@ -143,7 +143,7 @@ public class AbstractClientTest
       }
     }
 
-    el.connect((InetSocketAddress)address, ci);
+    el.connect(address, ci);
 
     ByteBuffer outboundBuffer = ByteBuffer.allocate(ClientImpl.BUFFER_CAPACITY);
     LongBuffer lb = outboundBuffer.asLongBuffer();

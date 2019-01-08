@@ -21,10 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
-import com.celeral.netlet.util.Throwables;
-import java.lang.annotation.Annotation;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import com.celeral.utils.Throwables;
 
 /**
  *
@@ -117,30 +114,49 @@ public class ExecutingClient extends Client<Client.RPC>
     }
 
     send(rr);
-    
+
     if (method != null) {
       try {
         method = object.getClass().getMethod(method.getName(), method.getParameterTypes());
-        Analysis annotation = method.getAnnotation(Analysis.class);
-        if (annotation != null) {
-          Class<? extends PostAnalyzer> post = annotation.post();
-          if (post != null) {
-            try {
-              post.getDeclaredConstructor().newInstance().analyze(this, object, method, message.args, rr.response, rr.exception);
-            }
-            catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
-              throw new RuntimeException(ex);
+        Analyses analyses = method.getAnnotation(Analyses.class);
+        if (analyses != null) {
+          for (Analyses.Analysis analysis : analyses.value()) {
+            if (isApplicable(analysis)) {
+              analyze(analysis, object, method, message, rr);
             }
           }
         }
+
+        Analyses.Analysis analysis = method.getAnnotation(Analyses.Analysis.class);
+        if (isApplicable(analysis)) {
+          analyze(analysis, object, method, message, rr);
+        }
       }
       catch (NoSuchMethodException ex) {
-        // we do not do anything!
-                throw new RuntimeException(ex);
-
+        throw Throwables.throwFormatted(ex, RuntimeException.class,
+                                        "Since method {} was executed, it should have been found; Exceptionally corrupt JVM!",
+                                        method);
       }
     }
-    
+  }
+
+  private boolean isApplicable(Analyses.Analysis analysis)
+  {
+    return analysis != null && analysis.domain() == Analyses.Analysis.Domain.CALLEE;
+  }
+
+  private void analyze(Analyses.Analysis analysis, final Object object, Method method, RPC message, RR rr) throws RuntimeException, NoSuchMethodException
+  {
+    @SuppressWarnings("unchecked")
+    Class<? extends Analyses.Analysis.PostAnalyzer<Object,Object>> post = (Class<? extends Analyses.Analysis.PostAnalyzer<Object, Object>>) analysis.post();
+    if (post != null) {
+      try {
+        post.getDeclaredConstructor().newInstance().analyze(this, object, method, message.args, rr.response, rr.exception);
+      }
+      catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
+        throw new RuntimeException(ex);
+      }
+    }
   }
 
 }
