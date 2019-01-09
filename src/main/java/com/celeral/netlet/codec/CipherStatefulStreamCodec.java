@@ -18,7 +18,6 @@ package com.celeral.netlet.codec;
 import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.NoSuchAlgorithmException;
-import java.util.concurrent.atomic.AtomicReference;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -33,42 +32,25 @@ import com.celeral.netlet.util.Slice;
 import com.celeral.utils.Throwables;
 
 /**
- *
  * @author Chetan Narsude <chetan@celeral.com>
  */
 public class CipherStatefulStreamCodec<T> implements StatefulStreamCodec<T>
 {
-  private final AtomicReference<Cipher> encryption = new AtomicReference<>();
-  private final AtomicReference<Cipher> decryption = new AtomicReference<>();
+  private Cipher encryption;
+  private Cipher decryption;
   private final StatefulStreamCodec<T> codec;
 
-  public CipherStatefulStreamCodec(StatefulStreamCodec<T> codec, Key encryption, Key decryption)
+  public CipherStatefulStreamCodec(StatefulStreamCodec<T> codec, Cipher encryption, Cipher decryption)
   {
     this.codec = codec;
     initCipher(encryption, decryption);
   }
 
-  public final void initCipher(Key encryption, Key decryption)
+  public final void initCipher(Cipher encryption, Cipher decryption)
   {
-    try {
-      if (encryption != null) {
-        Cipher instance = Cipher.getInstance(RSAECBOAEP_WITH_SHA1_AND_MGF1_PADDING);
-        instance.init(Cipher.ENCRYPT_MODE, encryption);
-        this.encryption.set(instance);
-      }
-
-      if (decryption != null) {
-        Cipher instance = Cipher.getInstance(RSAECBOAEP_WITH_SHA1_AND_MGF1_PADDING);
-        instance.init(Cipher.DECRYPT_MODE, decryption);
-        this.decryption.set(instance);
-      }
-    }
-    catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException ex) {
-      throw new RuntimeException(ex);
-    }
+    this.encryption = encryption;
+    this.decryption = decryption;
   }
-
-  private static final String RSAECBOAEP_WITH_SHA1_AND_MGF1_PADDING = "RSA/ECB/OAEPWithSHA1AndMGF1Padding";
 
   public static Slice doFinal(Cipher cipher, Slice slice) throws IllegalBlockSizeException, BadPaddingException
   {
@@ -86,20 +68,21 @@ public class CipherStatefulStreamCodec<T> implements StatefulStreamCodec<T>
     }
     catch (ShortBufferException ex) {
       throw Throwables.throwFormatted(ex, IllegalStateException.class,
-                                      "Incorrect implementation caused miscalculation of the buffer size! slice = {}, newbuffer = {}, cipher = {}",
-                                      slice.length, newBuffer.length, cipher);
+        "Incorrect implementation caused miscalculation of the buffer size! slice = {}, newbuffer = {}, cipher = {}",
+        slice.length, newBuffer.length, cipher);
     }
   }
 
   private static final Logger logger = LoggerFactory.getLogger(CipherStatefulStreamCodec.class);
+
   @Override
   public DataStatePair toDataStatePair(T o)
   {
     try {
       DataStatePair pair = codec.toDataStatePair(o);
-      pair.data = CipherStatefulStreamCodec.doFinal(encryption.get(), pair.data);
+      pair.data = CipherStatefulStreamCodec.doFinal(encryption, pair.data);
       if (pair.state != null) {
-        pair.state = CipherStatefulStreamCodec.doFinal(encryption.get(), pair.state);
+        pair.state = CipherStatefulStreamCodec.doFinal(encryption, pair.state);
       }
       return pair;
     }
@@ -112,9 +95,9 @@ public class CipherStatefulStreamCodec<T> implements StatefulStreamCodec<T>
   public Object fromDataStatePair(DataStatePair pair)
   {
     try {
-      pair.data = CipherStatefulStreamCodec.doFinal(decryption.get(), pair.data);
+      pair.data = CipherStatefulStreamCodec.doFinal(decryption, pair.data);
       if (pair.state != null) {
-        pair.state = CipherStatefulStreamCodec.doFinal(decryption.get(), pair.state);
+        pair.state = CipherStatefulStreamCodec.doFinal(decryption, pair.state);
       }
       return codec.fromDataStatePair(pair);
     }

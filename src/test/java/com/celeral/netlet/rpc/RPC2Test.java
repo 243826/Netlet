@@ -37,6 +37,10 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
@@ -61,7 +65,6 @@ import com.celeral.netlet.util.Throwables;
 import com.celeral.utils.NamedThreadFactory;
 
 /**
- *
  * @author Chetan Narsude  <chetan@apache.org>
  */
 public class RPC2Test
@@ -80,7 +83,7 @@ public class RPC2Test
       }
       catch (ClassNotFoundException ex) {
         throw Throwables.throwFormatted(ex, IllegalStateException.class,
-                                        "Unable to initialize the serializer/deserializer!");
+          "Unable to initialize the serializer/deserializer!");
       }
     }
   }
@@ -90,9 +93,9 @@ public class RPC2Test
   private void authenticate(ProxyClient client, Identity identity) throws IOException
   {
     Authenticator authenticator = client.create(identity,
-                                                Authenticator.class.getClassLoader(),
-                                                new Class<?>[]{Authenticator.class},
-                                                serdesProvider);
+      Authenticator.class.getClassLoader(),
+      new Class<?>[]{Authenticator.class},
+      serdesProvider);
     try (ProxyClient.InvocationHandlerImpl impl = (ProxyClient.InvocationHandlerImpl) Proxy.getInvocationHandler(authenticator)) {
       final String alias = Integer.toString(new Random(System.currentTimeMillis()).nextInt(clientKeys.keys.size()));
       final KeyPair clientKeyPair = clientKeys.keys.get(alias);
@@ -102,12 +105,21 @@ public class RPC2Test
 
       StatefulStreamCodec<Object> unwrapped = Synchronized.unwrapIfWrapped(impl.client.getSerdes());
       if (unwrapped instanceof CipherStatefulStreamCodec) {
-        CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrapped;
-        serdes.initCipher(serverIntro.getKey(), clientKeyPair.getPrivate());
+        CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>) unwrapped;
+        serdes.initCipher(PKICalleeSwitch.getCipher(Cipher.ENCRYPT_MODE, serverIntro.getKey()),
+          PKICalleeSwitch.getCipher(Cipher.DECRYPT_MODE, clientKeyPair.getPrivate()));
       }
 
       PKIChallenge challenge = new PKIChallenge(alias);
       Authenticator.Response response = authenticator.establishSession(challenge);
+      if (unwrapped instanceof CipherStatefulStreamCodec) {
+        CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>) unwrapped;
+        SecretKey key = new SecretKeySpec(response.getSecret(), "AES");
+        IvParameterSpec iv = new IvParameterSpec(challenge.getInitializationVector());
+        serdes.initCipher(AESCalleeSwitch.getCipher(Cipher.ENCRYPT_MODE, key, iv),
+          AESCalleeSwitch.getCipher(Cipher.DECRYPT_MODE, key, iv));
+      }
+
       Assert.assertArrayEquals(challenge.getToken(), response.getToken());
       logger.debug("{} == {}", challenge.getToken(), response.getToken());
     }
@@ -178,7 +190,7 @@ public class RPC2Test
     {
       this.id = id;
       this.token = getRandomBytes(16);
-      this.iv = getRandomBytes(12);
+      this.iv = getRandomBytes(16);
     }
 
     @Override
@@ -324,7 +336,6 @@ public class RPC2Test
      * Introduce the client to the server using the publickey and id to assist with fast identification.
      *
      * @param client introduction of the caller
-     *
      * @return introduction of the callee if it recognizes the caller and wants to chat with it
      */
     Introduction getPublicKey(Introduction client);
@@ -334,7 +345,6 @@ public class RPC2Test
      * The client sends the server a payload which is encrypted by the
      *
      * @param challenge serialized bytes of object of type {@link Challenge}
-     *
      * @return serialized bytes of object of type {@link Response}
      */
     Response establishSession(@NotNull Challenge challenge);
@@ -357,8 +367,8 @@ public class RPC2Test
       }
       catch (KeyStoreException | IOException | NoSuchAlgorithmException | CertificateException ex) {
         throw Throwables.throwFormatted(ex,
-                                        IllegalStateException.class,
-                                        "Unable to create a keystore to store they keys!");
+          IllegalStateException.class,
+          "Unable to create a keystore to store they keys!");
       }
 
       try {
@@ -366,8 +376,8 @@ public class RPC2Test
       }
       catch (NoSuchAlgorithmException ex) {
         throw Throwables.throwFormatted(ex,
-                                        IllegalStateException.class,
-                                        "Unable to create a master key pair!");
+          IllegalStateException.class,
+          "Unable to create a master key pair!");
       }
     }
 
@@ -395,6 +405,7 @@ public class RPC2Test
     }
 
     @Override
+    @Analyses({@Analyses.Analysis(post = AESCalleeSwitch.class, domain = Analyses.Analysis.Domain.CALLEE)})
     public Response establishSession(Challenge challenge)
     {
       return new PKIResponse(0, challenge.getToken());
@@ -425,8 +436,8 @@ public class RPC2Test
       }
       catch (NoSuchAlgorithmException ex) {
         throw Throwables.throwFormatted(ex,
-                                        IllegalStateException.class,
-                                        "Unable to populate the keypairs for the clients");
+          IllegalStateException.class,
+          "Unable to populate the keypairs for the clients");
       }
     }
   }
@@ -505,9 +516,9 @@ public class RPC2Test
           }
 
           ProxyClient client = new ProxyClient(new SimpleConnectionAgent(si, el),
-                                               TimeoutPolicy.NO_TIMEOUT_POLICY,
-                                               ExternalizableMethodSerializer.SINGLETON,
-                                               clientExecutor);
+            TimeoutPolicy.NO_TIMEOUT_POLICY,
+            ExternalizableMethodSerializer.SINGLETON,
+            clientExecutor);
           Identity identity = new Identity();
           identity.name = "authenticator";
           authenticate(client, identity);

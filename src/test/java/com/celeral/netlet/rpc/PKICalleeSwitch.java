@@ -16,12 +16,15 @@
 package com.celeral.netlet.rpc;
 
 import java.lang.reflect.Method;
-import java.security.PrivateKey;
-import java.security.PublicKey;
+import java.security.*;
 
 import com.celeral.netlet.codec.CipherStatefulStreamCodec;
 import com.celeral.netlet.codec.StatefulStreamCodec;
 import com.celeral.netlet.rpc.RPC2Test.Authenticator.Introduction;
+import com.celeral.utils.Throwables;
+
+import javax.crypto.Cipher;
+import javax.crypto.NoSuchPaddingException;
 
 /**
  *
@@ -29,6 +32,26 @@ import com.celeral.netlet.rpc.RPC2Test.Authenticator.Introduction;
  */
 class PKICalleeSwitch implements Analyses.Analysis.PostAnalyzer<RPC2Test.AuthenticatorImpl, RPC2Test.PKIIntroduction>
 {
+  private static final String RSAECBOAEP_WITH_SHA1_AND_MGF1_PADDING = "RSA/ECB/OAEPWithSHA1AndMGF1Padding";
+
+  public static Cipher getCipher(int mode, Key key)
+  {
+    if (key == null) {
+      return null;
+    }
+
+    try {
+      Cipher instance = Cipher.getInstance(RSAECBOAEP_WITH_SHA1_AND_MGF1_PADDING);
+      instance.init(mode, key);
+      return instance;
+    }
+    catch (NoSuchPaddingException | NoSuchAlgorithmException | InvalidKeyException ex) {
+      throw Throwables.throwFormatted(ex, RuntimeException.class,
+        "Unable to create {} mode instance of Cipher for key {}",
+        mode, key);
+    }
+  }
+
   @Override
   public void analyze(Client<Client.RPC> client, RPC2Test.AuthenticatorImpl authenticator, Method method, Object[] args, RPC2Test.PKIIntroduction retval, Throwable exception)
   {
@@ -39,9 +62,8 @@ class PKICalleeSwitch implements Analyses.Analysis.PostAnalyzer<RPC2Test.Authent
     StatefulStreamCodec<Object> unwrappedSerdes = StatefulStreamCodec.Synchronized.unwrapIfWrapped(client.getSerdes());
     if (unwrappedSerdes instanceof CipherStatefulStreamCodec) {
       final CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrappedSerdes;
-      final PublicKey encryption = ((Introduction) args[0]).getKey();
-      final PrivateKey decryption = authenticator.master.getPrivate();
-
+      final Cipher encryption = getCipher(Cipher.ENCRYPT_MODE, ((Introduction) args[0]).getKey());
+      final Cipher decryption = getCipher(Cipher.DECRYPT_MODE, authenticator.master.getPrivate());
       client.execute(new Runnable()
       {
         @Override
