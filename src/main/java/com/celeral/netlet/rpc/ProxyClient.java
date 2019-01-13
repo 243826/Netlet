@@ -156,28 +156,23 @@ public class ProxyClient
   {
     final Object identity;
     final ConcurrentLinkedQueue<RPCFuture> futureResponses;
-    DelegatingClient client;
-    final SerdesProvider serdesProvider;
+    public final DelegatingClient client;
 
     InvocationHandlerImpl(Object id, SerdesProvider provider)
     {
       identity = id;
       futureResponses = new ConcurrentLinkedQueue<>();
-      serdesProvider = provider;
+      client = new DelegatingClient(futureResponses, methodSerializer, executors);
+      if (provider != null) {
+        client.setSerdes(provider.newSerdes());
+      }
     }
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable
     {
       do {
-        if (client == null) {
-          client = new DelegatingClient(futureResponses, methodSerializer, executors);
-          if (serdesProvider != null) {
-            client.setSerdes(serdesProvider.newSerdes());
-          }
-          agent.connect(client);
-        }
-        else if (!client.isConnected()) {
+        if (!client.isConnected()) {
           agent.connect(client);
         }
 
@@ -204,7 +199,6 @@ public class ProxyClient
         if (client.isConnected()) {
           agent.disconnect(client);
         }
-        client = null;
       }
     }
 

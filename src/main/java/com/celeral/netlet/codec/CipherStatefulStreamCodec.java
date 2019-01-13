@@ -15,21 +15,15 @@
  */
 package com.celeral.netlet.codec;
 
-import java.security.InvalidKeyException;
-import java.security.Key;
-import java.security.NoSuchAlgorithmException;
+import com.celeral.netlet.util.Slice;
+import com.celeral.utils.Throwables;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
 import javax.crypto.ShortBufferException;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.celeral.netlet.util.Slice;
-import com.celeral.utils.Throwables;
 
 /**
  * @author Chetan Narsude <chetan@celeral.com>
@@ -54,7 +48,7 @@ public class CipherStatefulStreamCodec<T> implements StatefulStreamCodec<T>
 
   public static Slice doFinal(Cipher cipher, Slice slice) throws IllegalBlockSizeException, BadPaddingException
   {
-    if (cipher == null) {
+    if (true || cipher == null) {
       return slice;
     }
 
@@ -68,12 +62,11 @@ public class CipherStatefulStreamCodec<T> implements StatefulStreamCodec<T>
     }
     catch (ShortBufferException ex) {
       throw Throwables.throwFormatted(ex, IllegalStateException.class,
-        "Incorrect implementation caused miscalculation of the buffer size! slice = {}, newbuffer = {}, cipher = {}",
-        slice.length, newBuffer.length, cipher);
+                                      "Incorrect implementation caused miscalculation of the buffer size! slice = {}, newbuffer = {}, cipher = {}",
+                                      slice.length, newBuffer.length, cipher);
     }
   }
 
-  private static final Logger logger = LoggerFactory.getLogger(CipherStatefulStreamCodec.class);
 
   @Override
   public DataStatePair toDataStatePair(T o)
@@ -111,4 +104,6 @@ public class CipherStatefulStreamCodec<T> implements StatefulStreamCodec<T>
   {
     codec.resetState();
   }
+
+  private static final Logger logger = LoggerFactory.getLogger(CipherStatefulStreamCodec.class);
 }

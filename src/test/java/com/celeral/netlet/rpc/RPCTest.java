@@ -44,7 +44,7 @@ import com.celeral.netlet.util.Throwables;
  *
  * @author Chetan Narsude  <chetan@apache.org>
  */
-public class RPC1Test
+public class RPCTest
 {
   public interface Hello
   {
