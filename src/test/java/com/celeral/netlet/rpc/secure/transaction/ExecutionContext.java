@@ -1,4 +1,4 @@
-package com.celeral.netlet.rpc.secure;
+package com.celeral.netlet.rpc.secure.transaction;
 
 import java.io.File;
 

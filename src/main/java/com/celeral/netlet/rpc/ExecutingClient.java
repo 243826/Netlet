@@ -20,8 +20,13 @@ import java.lang.reflect.Method;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 
-import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
 import com.celeral.utils.Throwables;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.celeral.netlet.codec.StatefulStreamCodec;
+import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
 
 /**
  *
@@ -56,7 +61,7 @@ public class ExecutingClient extends Client<Client.RPC>
     Client.RR rr;
     Method method = null;
 
-    final Object object = bean.get(message.identifier);
+    final Object object = bean.get(message.identifier, this);
     Integer methodId = message.methodId;
     try {
       if (message instanceof Client.ExtendedRPC) {
@@ -104,7 +109,40 @@ public class ExecutingClient extends Client<Client.RPC>
         }
       }
 
-      rr = new Client.RR(message.id, method.invoke(object, message.args));
+      Object retval;
+
+      Method objectMethod = object.getClass().getMethod(method.getName(), method.getParameterTypes());
+      ContextAware annotation = objectMethod.getAnnotation(ContextAware.class);
+      if (annotation == null) {
+        retval = objectMethod.invoke(object, message.args);
+      }
+      else {
+        Class<?>[] types = method.getParameterTypes();
+        if (types.length == 0) {
+          objectMethod = object.getClass().getMethod(method.getName(), ExecutionContext.class);
+          retval = objectMethod.invoke(object, getExecutionContext());
+        }
+        else {
+          Class<?>[] newTypes = new Class<?>[types.length + 1];
+          newTypes[0] = ExecutionContext.class;
+          int t = 1;
+          for (Class<?> type : types) {
+            newTypes[t++] = type;
+          }
+          objectMethod = object.getClass().getMethod(method.getName(), newTypes);
+
+          Object[] arguments = new Object[message.args.length + 1];
+          arguments[0] = getExecutionContext();
+          int o = 1;
+          for (Object arg : message.args) {
+            arguments[o++] = arg;
+          }
+
+          retval = objectMethod.invoke(object, arguments);
+        }
+      }
+
+      rr = new Client.RR(message.id, retval);
     }
     catch (InvocationTargetException ex) {
       rr = new Client.RR(message.id, null, ex.getCause());
@@ -113,50 +151,21 @@ public class ExecutingClient extends Client<Client.RPC>
       rr = new Client.RR(message.id, null, ex);
     }
 
+    logger.info("responding to {}", method);
     send(rr);
-
-    if (method != null) {
-      try {
-        method = object.getClass().getMethod(method.getName(), method.getParameterTypes());
-        Analyses analyses = method.getAnnotation(Analyses.class);
-        if (analyses != null) {
-          for (Analyses.Analysis analysis : analyses.value()) {
-            if (isApplicable(analysis)) {
-              analyze(analysis, object, method, message, rr);
-            }
-          }
-        }
-
-        Analyses.Analysis analysis = method.getAnnotation(Analyses.Analysis.class);
-        if (isApplicable(analysis)) {
-          analyze(analysis, object, method, message, rr);
-        }
-      }
-      catch (NoSuchMethodException ex) {
-        throw Throwables.throwFormatted(ex, RuntimeException.class,
-                                        "Since method {} was executed, it should have been found; Exceptionally corrupt JVM!",
-                                        method);
-      }
-    }
   }
 
-  private boolean isApplicable(Analyses.Analysis analysis)
+  private ExecutionContext getExecutionContext()
   {
-    return analysis != null && analysis.domain() == Analyses.Analysis.Domain.CALLEE;
+    return new ExecutionContext()
+    {
+      @Override
+      public StatefulStreamCodec<Object> getSerdes()
+      {
+        return ExecutingClient.this.getSerdes();
+      }
+    };
   }
 
-  private void analyze(Analyses.Analysis analysis, final Object object, Method method, RPC message, RR rr) throws RuntimeException, NoSuchMethodException
-  {
-    @SuppressWarnings("unchecked")
-    Class<? extends Analyses.Analysis.PostAnalyzer<Object,Object>> post = (Class<? extends Analyses.Analysis.PostAnalyzer<Object, Object>>) analysis.post();
-    if (post != null) {
-      try {
-        post.getDeclaredConstructor().newInstance().analyze(this, object, method, message.args, rr.response, rr.exception);
-      }
-      catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
-        throw new RuntimeException(ex);
-      }
-    }
-  }
-
+  public static final Logger logger = LoggerFactory.getLogger(ExecutingClient.class);
 }

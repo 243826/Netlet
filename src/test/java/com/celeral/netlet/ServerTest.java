@@ -15,16 +15,15 @@
  */
 package com.celeral.netlet;
 
-import com.celeral.netlet.AbstractClient;
-import com.celeral.netlet.AbstractServer;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import static java.lang.Thread.sleep;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static java.lang.Thread.sleep;
 
 
 public class ServerTest

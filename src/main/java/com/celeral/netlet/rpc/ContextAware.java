@@ -19,35 +19,14 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.lang.reflect.Method;
 
 /**
+ *
  * @author Chetan Narsude <chetan@celeral.com>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
-public @interface Analyses
+public @interface ContextAware
 {
-  Analysis[] value();
 
-  @Retention(RetentionPolicy.RUNTIME)
-  @Target(ElementType.METHOD)
-  @interface Analysis
-  {
-    enum Domain
-    {
-      CALLER,
-      CALLEE
-    }
-
-    interface PostAnalyzer<T, R>
-    {
-      void analyze(Client<Client.RPC> client, T object, Method method, Object[] args, R retval, Throwable exception);
-    }
-
-    Class<? extends PostAnalyzer<?, ?>> post();
-
-    Domain domain();
-
-  }
 }

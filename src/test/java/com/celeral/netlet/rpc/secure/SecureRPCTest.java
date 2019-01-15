@@ -22,7 +22,6 @@ import java.net.SocketAddress;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
@@ -30,11 +29,10 @@ import java.util.concurrent.Executors;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-import com.celeral.netlet.rpc.*;
-import com.celeral.netlet.rpc.secure.upload.UploadTransaction;
+import com.celeral.utils.NamedThreadFactory;
 import com.esotericsoftware.kryo.serializers.JavaSerializer;
 
 import org.junit.Assert;
@@ -49,9 +47,13 @@ import com.celeral.netlet.codec.DefaultStatefulStreamCodec;
 import com.celeral.netlet.codec.StatefulStreamCodec;
 import com.celeral.netlet.codec.StatefulStreamCodec.Synchronized;
 import com.celeral.netlet.rpc.ConnectionAgent.SimpleConnectionAgent;
+import com.celeral.netlet.rpc.ProxyClient;
+import com.celeral.netlet.rpc.SerdesProvider;
+import com.celeral.netlet.rpc.TimeoutPolicy;
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
+import com.celeral.netlet.rpc.secure.transaction.TransactionProcessor;
+import com.celeral.netlet.rpc.secure.upload.UploadTransaction;
 import com.celeral.netlet.util.Throwables;
-import com.celeral.utils.NamedThreadFactory;
 
 /**
  * @author Chetan Narsude  <chetan@apache.org>
@@ -60,12 +62,17 @@ public class SecureRPCTest
 {
   public static final String CHARSET_UTF_8 = "UTF-8";
 
-  static class MySerdesProvider implements SerdesProvider
+  static class CipherSerdesProvider implements SerdesProvider
   {
     @Override
-    public StatefulStreamCodec<Object> newSerdes()
+    public StatefulStreamCodec<Object> newSerdes(StatefulStreamCodec<Object> serdes)
     {
-      DefaultStatefulStreamCodec<Object> codec = new DefaultStatefulStreamCodec<>();
+      return createSerdes(serdes);
+    }
+
+    public static StatefulStreamCodec<Object> createSerdes(StatefulStreamCodec<Object> serdes)
+    {
+      DefaultStatefulStreamCodec<Object> codec = (DefaultStatefulStreamCodec<Object>)serdes;
       try {
         codec.register(Class.forName("sun.security.rsa.RSAPublicKeyImpl"), new JavaSerializer());
         return Synchronized.wrap(new CipherStatefulStreamCodec<>(codec, null, null));
@@ -77,38 +84,62 @@ public class SecureRPCTest
     }
   }
 
-  public static MySerdesProvider serdesProvider = new MySerdesProvider();
+  public static CipherSerdesProvider serdesProvider = new CipherSerdesProvider();
 
-  private void authenticate(ProxyClient client, String identity)
+  private void authenticate(ProxyClient client)
   {
-    Authenticator authenticator = client.create(identity,
+    final String alias = Integer.toString(new Random(System.currentTimeMillis()).nextInt(clientKeys.keys.size()));
+    final KeyPair clientKeyPair = clientKeys.keys.get(alias);
+
+    Authenticator authenticator = client.create("hello",
                                                 Authenticator.class.getClassLoader(),
                                                 new Class<?>[]{Authenticator.class},
                                                 serdesProvider);
-    try (ProxyClient.InvocationHandlerImpl impl = (ProxyClient.InvocationHandlerImpl) Proxy.getInvocationHandler(authenticator)) {
-      final String alias = Integer.toString(new Random(System.currentTimeMillis()).nextInt(clientKeys.keys.size()));
-      final KeyPair clientKeyPair = clientKeys.keys.get(alias);
-
-      final PKIIntroduction clientIntro = new PKIIntroduction("0.0.00", alias, clientKeyPair.getPublic());
-      Authenticator.Introduction serverIntro = authenticator.getPublicKey(clientIntro);
-
+    try (ProxyClient.DelegationTransport impl = (ProxyClient.DelegationTransport)Proxy.getInvocationHandler(authenticator)) {
       StatefulStreamCodec<Object> unwrapped = Synchronized.unwrapIfWrapped(impl.client.getSerdes());
       if (unwrapped instanceof CipherStatefulStreamCodec) {
-        CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>) unwrapped;
-        serdes.initCipher(PKICalleeSwitch.getCipher(Cipher.ENCRYPT_MODE, serverIntro.getKey()),
-                          PKICalleeSwitch.getCipher(Cipher.DECRYPT_MODE, clientKeyPair.getPrivate()));
+        CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrapped;
+        serdes.initCipher(null,
+                          CipherStatefulStreamCodec.getCipher(Cipher.DECRYPT_MODE, clientKeyPair.getPrivate()));
       }
 
-      PKIChallenge challenge = new PKIChallenge(alias);
-      Authenticator.Response response = authenticator.establishSession(challenge);
+      final BasicIntroduction clientIntro = new BasicIntroduction("0.0.00", alias, clientKeyPair.getPublic());
+      final Authenticator.Introduction serverIntro = authenticator.getPublicKey(clientIntro);
 
-      transact(client, response, challenge);
+      if (areCompatible(clientIntro, serverIntro)) {
+        PKIChallenge challenge = new PKIChallenge(alias);
+        if (unwrapped instanceof CipherStatefulStreamCodec) {
+          CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrapped;
+          SecretKey key = new SecretKeySpec(challenge.getSecret(), "AES");
+          IvParameterSpec iv = new IvParameterSpec(challenge.getInitializationVector());
+          serdes.initCipher(CipherStatefulStreamCodec.getCipher(Cipher.ENCRYPT_MODE, serverIntro.getKey()),
+                            CipherStatefulStreamCodec.getCipher(Cipher.DECRYPT_MODE, key, iv));
+        }
+
+        Authenticator.Response response = authenticator.establishSession(challenge);
+        Assert.assertArrayEquals(challenge.getSecret(), response.getSecret());
+        logger.debug("{} == {}", challenge.getSecret(), response.getSecret());
+
+        if (unwrapped instanceof CipherStatefulStreamCodec) {
+          CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrapped;
+          SecretKey key = new SecretKeySpec(response.getSecret(), "AES");
+          IvParameterSpec iv = new IvParameterSpec(challenge.getInitializationVector());
+          serdes.initCipher(CipherStatefulStreamCodec.getCipher(Cipher.ENCRYPT_MODE, key, iv),
+                            CipherStatefulStreamCodec.getCipher(Cipher.DECRYPT_MODE, key, iv));
+        }
+        transact(client, response, challenge);
+      }
     }
   }
 
-  private void transact(ProxyClient client, Authenticator.Response response,  Authenticator.Challenge challenge)
+  private boolean areCompatible(BasicIntroduction clientIntro, Authenticator.Introduction serverIntro)
   {
-    Assert.assertArrayEquals(challenge.getToken(), response.getToken());
+    return true;
+  }
+
+  private void transact(ProxyClient client, Authenticator.Response response, Authenticator.Challenge challenge)
+  {
+    Assert.assertArrayEquals(challenge.getSecret(), response.getSecret());
     /*
      * we are very sure here that our communication is secure at this point!
      */
@@ -116,16 +147,16 @@ public class SecureRPCTest
                                                               TransactionProcessor.class.getClassLoader(),
                                                               new Class<?>[]{TransactionProcessor.class},
                                                               serdesProvider);
-    try (ProxyClient.InvocationHandlerImpl store = (ProxyClient.InvocationHandlerImpl) Proxy.getInvocationHandler(transactionProcessor)) {
+    try (ProxyClient.DelegationTransport store = (ProxyClient.DelegationTransport)Proxy.getInvocationHandler(transactionProcessor)) {
       StatefulStreamCodec<Object> unwrapped = Synchronized.unwrapIfWrapped(store.client.getSerdes());
       if (unwrapped instanceof CipherStatefulStreamCodec) {
-        CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>) unwrapped;
-        SecretKey key = new SecretKeySpec(response.getToken(), "AES");
-        GCMParameterSpec iv = new GCMParameterSpec(128, challenge.getInitializationVector());
-        serdes.initCipher(AESCalleeSwitch.getCipher(Cipher.ENCRYPT_MODE, key, iv),
-                          AESCalleeSwitch.getCipher(Cipher.DECRYPT_MODE, key, iv));
+        CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrapped;
+        SecretKey key = new SecretKeySpec(response.getSecret(), "AES");
+        //GCMParameterSpec iv = new GCMParameterSpec(128, challenge.getInitializationVector());
+        IvParameterSpec iv = new IvParameterSpec(challenge.getInitializationVector());
+        serdes.initCipher(CipherStatefulStreamCodec.getCipher(Cipher.ENCRYPT_MODE, key, iv),
+                          CipherStatefulStreamCodec.getCipher(Cipher.DECRYPT_MODE, key, iv));
       }
-
 
       try {
         UploadTransaction transaction = new UploadTransaction("target/test-classes/com/celeral/netlet/rpc/secure/SecureRPCTest.class", 1024);
@@ -141,17 +172,6 @@ public class SecureRPCTest
       }
     }
   }
-
-
-  private static SecureRandom random = new SecureRandom();
-
-  public static byte[] getRandomBytes(int size)
-  {
-    byte[] bytes = new byte[size];
-    random.nextBytes(bytes);
-    return bytes;
-  }
-
 
   public static class ClientKeys
   {
@@ -209,8 +229,7 @@ public class SecureRPCTest
                                                TimeoutPolicy.NO_TIMEOUT_POLICY,
                                                ExternalizableMethodSerializer.SINGLETON,
                                                clientExecutor);
-          String identity = "authenticator";
-          authenticate(client, identity);
+          authenticate(client);
         }
         finally {
           el.stop(server);
@@ -227,5 +246,5 @@ public class SecureRPCTest
   }
 
 
-  private static final Logger logger = LoggerFactory.getLogger(Authenticator.class);
+  private static final Logger logger = LoggerFactory.getLogger(SecureRPCTest.class);
 }

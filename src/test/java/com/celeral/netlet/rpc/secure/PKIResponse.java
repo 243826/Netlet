@@ -3,23 +3,23 @@ package com.celeral.netlet.rpc.secure;
 public  class PKIResponse implements Authenticator.Response
 {
   int sessionId;
-  byte[] token;
+  byte[] secret;
 
   private PKIResponse()
   {
     /* jlto */
   }
 
-  public PKIResponse(int sessionId, byte[] token)
+  public PKIResponse(int sessionId, byte[] secret)
   {
     this.sessionId = sessionId;
-    this.token = token;
+    this.secret = secret;
   }
 
   @Override
-  public byte[] getToken()
+  public byte[] getSecret()
   {
-    return token;
+    return secret;
   }
 
   @Override

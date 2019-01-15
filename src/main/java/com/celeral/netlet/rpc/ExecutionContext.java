@@ -21,7 +21,7 @@ import com.celeral.netlet.codec.StatefulStreamCodec;
  *
  * @author Chetan Narsude <chetan@celeral.com>
  */
-public interface SerdesProvider
+public interface ExecutionContext
 {
-  StatefulStreamCodec<Object> newSerdes(StatefulStreamCodec<Object> serdes);
+  StatefulStreamCodec<Object> getSerdes();
 }

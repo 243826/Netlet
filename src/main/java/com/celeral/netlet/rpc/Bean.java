@@ -21,6 +21,6 @@ package com.celeral.netlet.rpc;
  */
 public interface Bean<T>
 {
-  Object get(T identifier);
+  Object get(T identifier, ExecutingClient client);
   
 }

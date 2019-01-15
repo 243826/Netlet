@@ -1,15 +1,12 @@
 package com.celeral.netlet.rpc.secure.upload;
 
-import com.celeral.netlet.rpc.secure.ExecutionContext;
-import com.celeral.netlet.rpc.secure.Payload;
-import com.celeral.netlet.rpc.secure.Transaction;
-import com.celeral.netlet.util.Throwables;
-
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.util.Arrays;
 
-import static com.celeral.netlet.rpc.secure.upload.UploadTransaction.CHUNK_SIZE;
+import com.celeral.netlet.rpc.secure.transaction.ExecutionContext;
+import com.celeral.netlet.rpc.secure.transaction.Payload;
+import com.celeral.netlet.rpc.secure.transaction.Transaction;
+import com.celeral.netlet.util.Throwables;
 
 public class UploadPayload implements Payload<UploadTransactionData>
 {

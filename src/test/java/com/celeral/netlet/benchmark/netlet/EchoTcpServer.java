@@ -21,17 +21,18 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import static java.lang.Thread.sleep;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.celeral.netlet.benchmark.util.BenchmarkConfiguration;
-import com.celeral.netlet.benchmark.util.BenchmarkResults;
 import com.celeral.netlet.AbstractClient;
 import com.celeral.netlet.AbstractServer;
 import com.celeral.netlet.DefaultEventLoop;
 import com.celeral.netlet.EventLoop;
+import com.celeral.netlet.benchmark.util.BenchmarkConfiguration;
+import com.celeral.netlet.benchmark.util.BenchmarkResults;
+
+import static java.lang.Thread.sleep;
 
 /**
  * <p>

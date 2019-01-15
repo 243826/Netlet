@@ -15,9 +15,9 @@
  */
 package com.celeral.netlet.rpc.methodserializer;
 
-import com.celeral.netlet.rpc.MethodSerializer;
-
 import java.lang.reflect.Method;
+
+import com.celeral.netlet.rpc.MethodSerializer;
 
 /**
  *

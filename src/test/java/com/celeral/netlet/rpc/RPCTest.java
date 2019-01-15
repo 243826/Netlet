@@ -100,7 +100,7 @@ public class RPCTest
         HelloImpl helloWorld = new HelloImpl("World");
 
         @Override
-        public Object get(Identity identifier)
+        public Object get(Identity identifier, ExecutingClient client)
         {
           if ("hello-india".equals(identifier.name)) {
             return helloIndia;

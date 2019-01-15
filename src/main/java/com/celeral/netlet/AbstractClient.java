@@ -23,10 +23,10 @@ import java.nio.channels.SocketChannel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.celeral.netlet.util.Slice;
 import com.celeral.netlet.Listener.ClientListener;
 import com.celeral.netlet.NetletThrowable.NetletRuntimeException;
 import com.celeral.netlet.util.CircularBuffer;
+import com.celeral.netlet.util.Slice;
 
 /**
  * <p>

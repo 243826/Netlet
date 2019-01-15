@@ -1,13 +1,27 @@
 package com.celeral.netlet.rpc.secure;
 
 
-import com.celeral.netlet.rpc.Analyses;
-import com.celeral.netlet.util.Throwables;
-
 import java.io.IOException;
-import java.security.*;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
 import java.security.cert.CertificateException;
 import java.util.HashMap;
+
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import javax.validation.constraints.NotNull;
+
+import com.celeral.netlet.codec.CipherStatefulStreamCodec;
+import com.celeral.netlet.codec.StatefulStreamCodec;
+import com.celeral.netlet.rpc.ContextAware;
+import com.celeral.netlet.rpc.ExecutionContext;
+import com.celeral.netlet.util.Throwables;
 
 public class AuthenticatorImpl implements Authenticator
 {
@@ -53,21 +67,48 @@ public class AuthenticatorImpl implements Authenticator
   }
 
   @Override
-  @Analyses({@Analyses.Analysis(post = PKICalleeSwitch.class, domain = Analyses.Analysis.Domain.CALLEE)})
+  @ContextAware
   public Introduction getPublicKey(Introduction client)
   {
     if (client.getKey().equals(publicKeys.get(client.getId()))) {
-      return new PKIIntroduction("0.0.00", "master", master.getPublic());
+      return new BasicIntroduction("0.0.00", "master", master.getPublic());
     }
 
     return null;
   }
 
-  @Override
-  @Analyses({@Analyses.Analysis(post = AESCalleeSwitch.class, domain = Analyses.Analysis.Domain.CALLEE)})
-  public Response establishSession(Challenge challenge)
+  public Introduction getPublicKey(ExecutionContext context, Introduction client)
   {
-    return new PKIResponse(0, challenge.getToken());
+    StatefulStreamCodec<Object> unwrapped = StatefulStreamCodec.Synchronized.unwrapIfWrapped(context.getSerdes());
+    if (unwrapped instanceof CipherStatefulStreamCodec) {
+      CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrapped;
+      serdes.initCipher(CipherStatefulStreamCodec.getCipher(Cipher.ENCRYPT_MODE, client.getKey()),
+                        CipherStatefulStreamCodec.getCipher(Cipher.DECRYPT_MODE, master.getPrivate()));
+    }
+
+    return getPublicKey(client);
+  }
+
+
+  @Override
+  @ContextAware
+  public Response establishSession(@NotNull Challenge challenge)
+  {
+    return new PKIResponse(0, challenge.getSecret());
+  }
+
+  public Response establishSession(ExecutionContext context, Challenge challenge)
+  {
+    StatefulStreamCodec<Object> unwrapped = StatefulStreamCodec.Synchronized.unwrapIfWrapped(context.getSerdes());
+    if (unwrapped instanceof CipherStatefulStreamCodec) {
+      CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrapped;
+      SecretKey key = new SecretKeySpec(challenge.getSecret(), "AES");
+      IvParameterSpec iv = new IvParameterSpec(challenge.getInitializationVector());
+      serdes.initCipher(CipherStatefulStreamCodec.getCipher(Cipher.ENCRYPT_MODE, key, iv),
+                        CipherStatefulStreamCodec.getCipher(Cipher.DECRYPT_MODE, key, iv));
+    }
+
+    return establishSession(challenge);
   }
 
 }

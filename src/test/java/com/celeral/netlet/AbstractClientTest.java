@@ -27,16 +27,18 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.Set;
-import static java.lang.Thread.sleep;
+
+import org.junit.Assert;
+import org.junit.Test;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.celeral.netlet.ServerTest.ServerImpl;
 import com.celeral.netlet.util.CircularBuffer;
 import com.celeral.netlet.util.Slice;
 
-import org.junit.Assert;
-import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static java.lang.Thread.sleep;
 
 public class AbstractClientTest
 {

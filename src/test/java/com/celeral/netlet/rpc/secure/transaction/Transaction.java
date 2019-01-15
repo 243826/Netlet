@@ -1,4 +1,4 @@
-package com.celeral.netlet.rpc.secure;
+package com.celeral.netlet.rpc.secure.transaction;
 
 public interface Transaction<T>
 {

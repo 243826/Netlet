@@ -1,4 +1,4 @@
-        /*
+/*
  * Copyright (c) 2013 DataTorrent, Inc. ALL Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +18,13 @@ package com.celeral.netlet.util;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.junit.*;
+import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -144,7 +150,8 @@ public class CircularBufferTest
   }
 
   @Test
-  public void testDrainToMax() {
+  public void testDrainToMax()
+  {
     CircularBuffer<Integer> instance = new CircularBuffer<Integer>(10);
     for (int i = 0; i < 10; ++i) {
       instance.offer(i);
@@ -153,7 +160,7 @@ public class CircularBufferTest
     instance.drainTo(list, 5);
     assert (list.size() == 5);
     for (int i = 0; i < list.size(); ++i) {
-      assert(list.get(i) == i);
+      assert (list.get(i) == i);
     }
   }
 

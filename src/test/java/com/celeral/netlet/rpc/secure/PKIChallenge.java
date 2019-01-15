@@ -1,5 +1,7 @@
 package com.celeral.netlet.rpc.secure;
 
+import com.celeral.netlet.codec.CipherStatefulStreamCodec;
+
 public class PKIChallenge implements Authenticator.Challenge
 {
   String id;
@@ -14,8 +16,8 @@ public class PKIChallenge implements Authenticator.Challenge
   public PKIChallenge(String id)
   {
     this.id = id;
-    this.token = SecureRPCTest.getRandomBytes(16);
-    this.iv = SecureRPCTest.getRandomBytes(12);
+    this.token = CipherStatefulStreamCodec.getRandomBytes(16);
+    this.iv = CipherStatefulStreamCodec.getRandomBytes(16);
   }
 
   @Override
@@ -25,7 +27,7 @@ public class PKIChallenge implements Authenticator.Challenge
   }
 
   @Override
-  public byte[] getToken()
+  public byte[] getSecret()
   {
     return token;
   }

@@ -35,7 +35,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.celeral.netlet.rpc.Client.ExtendedRPC;
 import com.celeral.netlet.rpc.Client.RPC;
 import com.celeral.netlet.rpc.Client.RR;
 
@@ -89,7 +88,7 @@ public class ProxyClient
     }
 
     @Override
-    public Object get() throws InterruptedException, ExecutionException
+    public Object get() throws ExecutionException
     {
       RR r = rr.get();
       if (r.exception != null) {
@@ -143,8 +142,8 @@ public class ProxyClient
   @SuppressWarnings("unchecked")
   public <T> T create(Object identifier, ClassLoader loader, Class<?>[] interfaces, SerdesProvider provider)
   {
-    // we can pass the interfaces to the InvocationHandlerImpl, and it can make sure that all the interfaces are supported
-    return (T)Proxy.newProxyInstance(loader, interfaces, new InvocationHandlerImpl(identifier, provider));
+    // we can pass the interfaces to the DelegationTransport, and it can make sure that all the interfaces are supported
+    return (T)Proxy.newProxyInstance(loader, interfaces, new DelegationTransport(identifier, provider));
   }
 
   public <T> T create(Object identifier, Class<T> iface)
@@ -152,19 +151,19 @@ public class ProxyClient
     return create(identifier, Thread.currentThread().getContextClassLoader(), new Class<?>[]{iface}, null);
   }
 
-  public class InvocationHandlerImpl implements InvocationHandler, Closeable
+  public class DelegationTransport implements InvocationHandler, Closeable
   {
     final Object identity;
     final ConcurrentLinkedQueue<RPCFuture> futureResponses;
     public final DelegatingClient client;
 
-    InvocationHandlerImpl(Object id, SerdesProvider provider)
+    DelegationTransport(Object id, SerdesProvider provider)
     {
       identity = id;
       futureResponses = new ConcurrentLinkedQueue<>();
       client = new DelegatingClient(futureResponses, methodSerializer, executors);
       if (provider != null) {
-        client.setSerdes(provider.newSerdes());
+        client.setSerdes(provider.newSerdes(client.getSerdes()));
       }
     }
 
@@ -176,6 +175,7 @@ public class ProxyClient
           agent.connect(client);
         }
 
+        logger.info("calling {}", method);
         RPCFuture future = new RPCFuture(client.send(identity, method, args));
         futureResponses.add(future);
 
