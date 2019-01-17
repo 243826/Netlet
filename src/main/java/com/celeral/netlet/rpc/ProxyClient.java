@@ -32,9 +32,12 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.celeral.utils.WeakIdentityHashMap;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.celeral.netlet.codec.StatefulStreamCodec;
 import com.celeral.netlet.rpc.Client.RPC;
 import com.celeral.netlet.rpc.Client.RR;
 
@@ -45,10 +48,9 @@ import com.celeral.netlet.rpc.Client.RR;
  */
 public class ProxyClient
 {
-  private final TimeoutPolicy policy;
-  private final ConnectionAgent agent;
   private final Executor executors;
   private final MethodSerializer<Object> methodSerializer;
+  private final WeakIdentityHashMap<Object, Object> identityMap = new WeakIdentityHashMap<>();
 
   /**
    * Future for tracking the asynchronous responses to the RPC call.
@@ -131,45 +133,49 @@ public class ProxyClient
   }
 
   @SuppressWarnings("unchecked")
-  public ProxyClient(ConnectionAgent agent, TimeoutPolicy policy, MethodSerializer<?> methodSerializer, Executor executors)
+  public ProxyClient(MethodSerializer<?> methodSerializer, Executor executors)
   {
-    this.policy = policy;
     this.methodSerializer = (MethodSerializer<Object>)methodSerializer;
-    this.agent = agent;
     this.executors = executors;
   }
 
-  @SuppressWarnings("unchecked")
-  public <T> T create(Object identifier, ClassLoader loader, Class<?>[] interfaces, SerdesProvider provider)
+  public <T> T create(Object identifier, ClassLoader loader, Class<?>[] interfaces, DelegationTransport transport)
   {
-    // we can pass the interfaces to the DelegationTransport, and it can make sure that all the interfaces are supported
-    return (T)Proxy.newProxyInstance(loader, interfaces, new DelegationTransport(identifier, provider));
+    @SuppressWarnings("unchecked")
+    T o = (T)Proxy.newProxyInstance(loader, interfaces, transport);
+    synchronized (identityMap) {
+      identityMap.put(o, identifier);
+    }
+    return o;
   }
 
-  public <T> T create(Object identifier, Class<T> iface)
+  public <T> T create(Object identifier, Class<T> iface, DelegationTransport transport)
   {
-    return create(identifier, Thread.currentThread().getContextClassLoader(), new Class<?>[]{iface}, null);
+    return create(identifier, Thread.currentThread().getContextClassLoader(), new Class<?>[]{iface}, transport);
   }
 
   public class DelegationTransport implements InvocationHandler, Closeable
   {
-    final Object identity;
-    final ConcurrentLinkedQueue<RPCFuture> futureResponses;
+    private final ConcurrentLinkedQueue<RPCFuture> futureResponses;
     public final DelegatingClient client;
+    private final ConnectionAgent agent;
+    private final TimeoutPolicy policy;
 
-    DelegationTransport(Object id, SerdesProvider provider)
+    public DelegationTransport(ConnectionAgent agent, TimeoutPolicy policy, StatefulStreamCodec<Object> serdes)
     {
-      identity = id;
-      futureResponses = new ConcurrentLinkedQueue<>();
-      client = new DelegatingClient(futureResponses, methodSerializer, executors);
-      if (provider != null) {
-        client.setSerdes(provider.newSerdes(client.getSerdes()));
+      this.agent = agent;
+      this.policy = policy;
+      this.futureResponses = new ConcurrentLinkedQueue<>();
+      this.client = new DelegatingClient(futureResponses, methodSerializer, executors);
+      if (serdes != null) {
+        this.client.setSerdes(serdes);
       }
     }
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable
     {
+      Object identity = identityMap.get(proxy);
       do {
         if (!client.isConnected()) {
           agent.connect(client);
@@ -206,7 +212,7 @@ public class ProxyClient
     {
       return client;
     }
-    
+
   }
 
   public static class DelegatingClient extends Client<RR>

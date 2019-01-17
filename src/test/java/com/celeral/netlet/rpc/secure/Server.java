@@ -15,9 +15,6 @@ import com.celeral.netlet.codec.DefaultStatefulStreamCodec;
 import com.celeral.netlet.rpc.Bean;
 import com.celeral.netlet.rpc.ExecutingClient;
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
-import com.celeral.netlet.rpc.secure.transaction.Payload;
-import com.celeral.netlet.rpc.secure.transaction.Transaction;
-import com.celeral.netlet.rpc.secure.transaction.TransactionProcessor;
 
 public class Server extends AbstractServer
 {
@@ -42,20 +39,7 @@ public class Server extends AbstractServer
       }
 
       if (identifier instanceof Authenticator.Response) {
-        return new TransactionProcessor()
-        {
-          @Override
-          public void process(Transaction<?> transaction)
-          {
-            System.out.println("Received transaction " + transaction);
-          }
-
-          @Override
-          public void process(Payload<?> payload)
-          {
-            System.out.println("received payload " + payload);
-          }
-        };
+        return new ConsoleTransactionProcessor();
       }
 
       return null;

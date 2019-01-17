@@ -86,7 +86,7 @@ public class SecureRPCTest
 
   public static CipherSerdesProvider serdesProvider = new CipherSerdesProvider();
 
-  private void authenticate(ProxyClient client)
+  private void authenticate(ProxyClient client, ProxyClient.DelegationTransport transport)
   {
     final String alias = Integer.toString(new Random(System.currentTimeMillis()).nextInt(clientKeys.keys.size()));
     final KeyPair clientKeyPair = clientKeys.keys.get(alias);
@@ -94,9 +94,8 @@ public class SecureRPCTest
     Authenticator authenticator = client.create("hello",
                                                 Authenticator.class.getClassLoader(),
                                                 new Class<?>[]{Authenticator.class},
-                                                serdesProvider);
-    try (ProxyClient.DelegationTransport impl = (ProxyClient.DelegationTransport)Proxy.getInvocationHandler(authenticator)) {
-      StatefulStreamCodec<Object> unwrapped = Synchronized.unwrapIfWrapped(impl.client.getSerdes());
+                                                transport);
+      StatefulStreamCodec<Object> unwrapped = Synchronized.unwrapIfWrapped(transport.client.getSerdes());
       if (unwrapped instanceof CipherStatefulStreamCodec) {
         CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrapped;
         serdes.initCipher(null,
@@ -127,9 +126,8 @@ public class SecureRPCTest
           serdes.initCipher(CipherStatefulStreamCodec.getCipher(Cipher.ENCRYPT_MODE, key, iv),
                             CipherStatefulStreamCodec.getCipher(Cipher.DECRYPT_MODE, key, iv));
         }
-        transact(client, response, challenge);
+        transact(client, transport, response, challenge);
       }
-    }
   }
 
   private boolean areCompatible(BasicIntroduction clientIntro, Authenticator.Introduction serverIntro)
@@ -137,7 +135,7 @@ public class SecureRPCTest
     return true;
   }
 
-  private void transact(ProxyClient client, Authenticator.Response response, Authenticator.Challenge challenge)
+  private void transact(ProxyClient client, ProxyClient.DelegationTransport transport, Authenticator.Response response, Authenticator.Challenge challenge)
   {
     Assert.assertArrayEquals(challenge.getSecret(), response.getSecret());
     /*
@@ -146,7 +144,7 @@ public class SecureRPCTest
     TransactionProcessor transactionProcessor = client.create(response,
                                                               TransactionProcessor.class.getClassLoader(),
                                                               new Class<?>[]{TransactionProcessor.class},
-                                                              serdesProvider);
+                                                              transport);
     try (ProxyClient.DelegationTransport store = (ProxyClient.DelegationTransport)Proxy.getInvocationHandler(transactionProcessor)) {
       StatefulStreamCodec<Object> unwrapped = Synchronized.unwrapIfWrapped(store.client.getSerdes());
       if (unwrapped instanceof CipherStatefulStreamCodec) {
@@ -225,11 +223,15 @@ public class SecureRPCTest
             }
           }
 
-          ProxyClient client = new ProxyClient(new SimpleConnectionAgent(si, el),
-                                               TimeoutPolicy.NO_TIMEOUT_POLICY,
-                                               ExternalizableMethodSerializer.SINGLETON,
+          SimpleConnectionAgent connectionAgent = new SimpleConnectionAgent(si, el);
+          ProxyClient client = new ProxyClient(ExternalizableMethodSerializer.SINGLETON,
                                                clientExecutor);
-          authenticate(client);
+          try (ProxyClient.DelegationTransport transport = client.new DelegationTransport(connectionAgent,
+                                                                                     TimeoutPolicy.NO_TIMEOUT_POLICY,
+                                                                                     null)) {
+            transport.client.setSerdes(serdesProvider.newSerdes(transport.client.getSerdes()));
+            authenticate(client, transport);
+          }
         }
         finally {
           el.stop(server);

@@ -41,7 +41,6 @@ import com.celeral.netlet.rpc.methodserializer.GenericStringBasedMethodSerialize
 import com.celeral.netlet.util.Throwables;
 
 /**
- *
  * @author Chetan Narsude  <chetan@apache.org>
  */
 public class RPCTest
@@ -168,15 +167,18 @@ public class RPCTest
           }
         }
 
-        ProxyClient client = new ProxyClient(new SimpleConnectionAgent(si, el),
-                                             TimeoutPolicy.NO_TIMEOUT_POLICY,
-                                             ExternalizableMethodSerializer.SINGLETON,
+        SimpleConnectionAgent connectionAgent = new SimpleConnectionAgent(si, el);
+        ProxyClient client = new ProxyClient(ExternalizableMethodSerializer.SINGLETON,
                                              executor);
-        Identity identity = new Identity();
-        interact(client, identity);
+        try (ProxyClient.DelegationTransport transport = client.new DelegationTransport(connectionAgent,
+                                                                                        TimeoutPolicy.NO_TIMEOUT_POLICY,
+                                                                                        null)) {
+          Identity identity = new Identity();
+          interact(client, transport, identity);
 
-        identity.name = "hello-india";
-        interact(client, identity);
+          identity.name = "hello-india";
+          interact(client, transport, identity);
+        }
       }
       finally {
         el.stop(server);
@@ -187,23 +189,18 @@ public class RPCTest
     }
   }
 
-  private void interact(ProxyClient client, Identity identity) throws IOException
+  private void interact(ProxyClient client, ProxyClient.DelegationTransport transport, Identity identity)
   {
-    Hello hello = client.create(identity, Hello.class);
+    Hello hello = client.create(identity, Hello.class, transport);
+    Assert.assertFalse("Before Greeted!", hello.hasGreeted());
+
     try {
-      Assert.assertFalse("Before Greeted!", hello.hasGreeted());
-
-      try {
-        hello.greet();
-      }
-      catch (RuntimeException ex) {
-        Assert.assertEquals("hello-india".equals(identity.name) ? "Hello India!" : "Hello World!", ex.getMessage());
-      }
-
-      Assert.assertTrue("After Greeted!", hello.hasGreeted());
+      hello.greet();
     }
-    finally {
-      ((Closeable)Proxy.getInvocationHandler(hello)).close();
+    catch (RuntimeException ex) {
+      Assert.assertEquals("hello-india".equals(identity.name) ? "Hello India!" : "Hello World!", ex.getMessage());
     }
+
+    Assert.assertTrue("After Greeted!", hello.hasGreeted());
   }
 }
