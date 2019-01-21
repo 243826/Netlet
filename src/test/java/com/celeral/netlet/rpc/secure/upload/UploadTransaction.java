@@ -12,13 +12,17 @@ import java.util.concurrent.atomic.AtomicLong;
 import com.esotericsoftware.kryo.serializers.FieldSerializer;
 import com.esotericsoftware.kryo.serializers.JavaSerializer;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.celeral.netlet.rpc.secure.transaction.ExecutionContext;
+import com.celeral.netlet.rpc.secure.transaction.Payload;
 import com.celeral.netlet.rpc.secure.transaction.Transaction;
 import com.celeral.netlet.util.Throwables;
 
 import static com.celeral.netlet.util.Throwables.throwFormatted;
 
-public class UploadTransaction implements Transaction<UploadTransactionData>
+public class UploadTransaction implements Transaction
 {
   static int CHUNK_SIZE = 1024 * 1024;
   private static AtomicLong transaction_id_generator = new AtomicLong();
@@ -27,6 +31,8 @@ public class UploadTransaction implements Transaction<UploadTransactionData>
   private final File path;
   private final int chunkSize;
   private long count;
+
+  transient UploadTransactionData data;
 
   private UploadTransaction()
   {
@@ -81,7 +87,7 @@ public class UploadTransaction implements Transaction<UploadTransactionData>
   }
 
 
-  public class UploadPayloadIterator implements Iterator<UploadPayload>, Closeable
+  public class UploadPayloadIterator implements Iterator<Payload<Transaction>>, Closeable
   {
     final FileInputStream is;
     int seq;
@@ -105,12 +111,16 @@ public class UploadTransaction implements Transaction<UploadTransactionData>
     }
 
     @Override
-    public UploadPayload next()
+    public Payload<Transaction> next()
     {
       byte[] bytes = new byte[seq == count - 1 ? (int)(UploadTransaction.this.path.length() - (long)seq * UploadTransaction.this.chunkSize) : UploadTransaction.this.chunkSize];
       try {
         is.read(bytes);
-        return new UploadPayload(UploadTransaction.this.getId(), seq, bytes);
+        @SuppressWarnings("rawtypes")
+        Payload payload = new UploadPayload(UploadTransaction.this.getId(), seq, bytes);
+        @SuppressWarnings("unchecked")
+        Payload<Transaction> retval = payload;
+        return retval;
       }
       catch (IOException ex) {
         throw Throwables.throwFormatted(ex, RuntimeException.class,
@@ -149,12 +159,12 @@ public class UploadTransaction implements Transaction<UploadTransactionData>
   }
 
   @Override
-  public void begin(ExecutionContext<UploadTransactionData> context)
+  public boolean begin(ExecutionContext context)
   {
     try {
       File tempFile = File.createTempFile(path.getName(), null, context.getStorageRoot());
       RandomAccessFile rw = new RandomAccessFile(tempFile, "rw");
-      context.data(new UploadTransactionData(tempFile, rw));
+      data = new UploadTransactionData(tempFile, rw);
     }
     catch (IOException ex) {
       throw throwFormatted(ex,
@@ -162,18 +172,24 @@ public class UploadTransaction implements Transaction<UploadTransactionData>
                            "Unable to create a temporary file for {} in directory {}",
                            path, context.getStorageRoot());
     }
+
+    return getPayloadCount() == 0;
   }
 
 
   @Override
-  public void end(ExecutionContext<UploadTransactionData> context)
+  public void end(ExecutionContext context)
   {
-    commit(context);
+    if (data.count == getPayloadCount()) {
+      commit(context);
+    }
+    else {
+      rollback(context);
+    }
   }
 
-  public void commit(ExecutionContext<UploadTransactionData> context)
+  public void commit(ExecutionContext context)
   {
-    UploadTransactionData data = context.data();
     try {
       data.channel.close();
     }
@@ -184,12 +200,14 @@ public class UploadTransaction implements Transaction<UploadTransactionData>
                            data.tempFile);
     }
 
-    data.tempFile.renameTo(path);
+    File dpath = new File(context.getStorageRoot(), path.getName());
+    data.tempFile.renameTo(dpath);
+    logger.debug("Creating file {}", dpath);
   }
 
-  public void rollback(ExecutionContext<UploadTransactionData> context)
+  public void rollback(ExecutionContext context)
   {
-    UploadTransactionData data = context.data();
+    logger.debug("Deleting file {}", data.tempFile);
 
     try {
       data.channel.close();
@@ -215,4 +233,6 @@ public class UploadTransaction implements Transaction<UploadTransactionData>
       ", count=" + count +
       '}';
   }
+
+  private static final Logger logger = LoggerFactory.getLogger(UploadTransaction.class);
 }

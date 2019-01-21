@@ -15,10 +15,13 @@
  */
 package com.celeral.netlet.rpc.secure;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
@@ -40,6 +43,8 @@ import org.junit.Test;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import org.apache.commons.lang3.SystemUtils;
 
 import com.celeral.netlet.DefaultEventLoop;
 import com.celeral.netlet.codec.CipherStatefulStreamCodec;
@@ -156,8 +161,16 @@ public class SecureRPCTest
                           CipherStatefulStreamCodec.getCipher(Cipher.DECRYPT_MODE, key, iv));
       }
 
+      String filename = "SecureRPCTest.class";
+      File source = new File("target/test-classes/com/celeral/netlet/rpc/secure", filename);
+      File destination = new File(SystemUtils.getJavaIoTmpDir(), filename);
+
       try {
-        UploadTransaction transaction = new UploadTransaction("target/test-classes/com/celeral/netlet/rpc/secure/SecureRPCTest.class", 1024);
+        if (destination.exists()) {
+          destination.delete();
+        }
+
+        UploadTransaction transaction = new UploadTransaction(source.toString(), 1024);
         transactionProcessor.process(transaction);
         try (UploadTransaction.UploadPayloadIterator uploadIterator = transaction.getPayloadIterator()) {
           while (uploadIterator.hasNext()) {
@@ -167,6 +180,18 @@ public class SecureRPCTest
       }
       catch (IOException ex) {
         throw new RuntimeException(ex);
+      }
+
+      try {
+        while (!destination.exists()) {
+          Thread.sleep(5);
+        }
+
+        Assert.assertArrayEquals("files identical",
+                                 Files.readAllBytes(Paths.get(source.toString())), Files.readAllBytes(Paths.get(destination.toString())));
+      }
+      catch (Exception ex) {
+        Throwables.wrapIfChecked(ex);
       }
     }
   }

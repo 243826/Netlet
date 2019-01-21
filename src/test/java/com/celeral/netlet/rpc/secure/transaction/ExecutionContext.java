@@ -2,7 +2,7 @@ package com.celeral.netlet.rpc.secure.transaction;
 
 import java.io.File;
 
-public interface ExecutionContext<T>
+public interface ExecutionContext
 {
   /**
    * Gets id of the tenant who initiated the transaction
@@ -10,32 +10,9 @@ public interface ExecutionContext<T>
    */
   long getTenantId();
 
-  int getCount();
-
-  /**
-   * Gets the actual transaction
-   * @return
-   */
-  Transaction<?> getTransaction();
-
-
-  Boolean getSequenceStatus(int id);
-
   /**
    * Gets the storage root specific to the tenant
    * @return
    */
   File getStorageRoot();
-
-  /**
-   * process transaction specific data.
-   * @param data
-   */
-  void data(T data);
-
-  /**
-   * get the transaction specific data stored earlier.
-   * @return
-   */
-  T data();
 }

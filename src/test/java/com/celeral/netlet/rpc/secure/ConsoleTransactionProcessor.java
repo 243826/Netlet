@@ -10,13 +10,13 @@ import com.celeral.netlet.rpc.secure.transaction.TransactionProcessor;
 public class ConsoleTransactionProcessor implements TransactionProcessor
 {
   @Override
-  public void process(Transaction<?> transaction)
+  public void process(Transaction transaction)
   {
     logger.info("received transaction {}", transaction);
   }
 
   @Override
-  public void process(Payload<?> payload)
+  public void process(Payload<Transaction> payload)
   {
     logger.info("received payload {}", payload);
   }

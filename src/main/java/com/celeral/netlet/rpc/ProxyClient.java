@@ -181,7 +181,7 @@ public class ProxyClient
           agent.connect(client);
         }
 
-        logger.info("calling {}", method);
+        logger.trace("calling {}", method);
         RPCFuture future = new RPCFuture(client.send(identity, method, args));
         futureResponses.add(future);
 

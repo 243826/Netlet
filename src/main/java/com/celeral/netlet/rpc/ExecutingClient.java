@@ -151,7 +151,7 @@ public class ExecutingClient extends Client<Client.RPC>
       rr = new Client.RR(message.id, null, ex);
     }
 
-    logger.info("responding to {}", method);
+    logger.trace("responding to {}", method);
     send(rr);
   }
 

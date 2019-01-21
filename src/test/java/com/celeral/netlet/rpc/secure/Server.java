@@ -15,6 +15,7 @@ import com.celeral.netlet.codec.DefaultStatefulStreamCodec;
 import com.celeral.netlet.rpc.Bean;
 import com.celeral.netlet.rpc.ExecutingClient;
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
+import com.celeral.netlet.rpc.secure.transaction.TransactionProcessor;
 
 public class Server extends AbstractServer
 {
@@ -27,6 +28,7 @@ public class Server extends AbstractServer
     }
   }
 
+  TransactionProcessor stp = new SerialTransactionProcessor();
 
   private Bean<Object> bean = new Bean<Object>()
   {
@@ -39,7 +41,7 @@ public class Server extends AbstractServer
       }
 
       if (identifier instanceof Authenticator.Response) {
-        return new ConsoleTransactionProcessor();
+        return stp;
       }
 
       return null;

@@ -5,10 +5,9 @@ import java.io.RandomAccessFile;
 
 import com.celeral.netlet.rpc.secure.transaction.ExecutionContext;
 import com.celeral.netlet.rpc.secure.transaction.Payload;
-import com.celeral.netlet.rpc.secure.transaction.Transaction;
 import com.celeral.netlet.util.Throwables;
 
-public class UploadPayload implements Payload<UploadTransactionData>
+public class UploadPayload implements Payload<UploadTransaction>
 {
   byte[] data;
   long transactionId;
@@ -18,6 +17,7 @@ public class UploadPayload implements Payload<UploadTransactionData>
   {
     /* jlto */
   }
+
   public UploadPayload(long transactionId, int sequenceId, byte[] data)
   {
     this.transactionId = transactionId;
@@ -41,31 +41,29 @@ public class UploadPayload implements Payload<UploadTransactionData>
   public String toString()
   {
     return "UploadPayload{" +
-      "data=" +data.length +
+      "data=" + data.length +
       ", transactionId=" + transactionId +
       ", sequenceId=" + sequenceId +
       '}';
   }
 
   @Override
-  public void execute(ExecutionContext<UploadTransactionData> context)
+  public boolean execute(ExecutionContext context, UploadTransaction transaction)
   {
-    Transaction<?> transaction = context.getTransaction();
-    if (transaction instanceof UploadTransaction) {
-      UploadTransaction ut = (UploadTransaction) transaction;
-      RandomAccessFile channel = context.data().channel;
-      try {
-        channel.seek(ut.getChunkSize() * sequenceId);
-        channel.write(this.data);
-      }
-      catch (IOException ex) {
-        throw Throwables.throwFormatted(ex,
-                                        RuntimeException.class,
-                                        "Unable to write chunk: {} in file {}!",
-                                        this, context.data().tempFile);
-      }
+    UploadTransactionData data = transaction.data;
+    RandomAccessFile channel = data.channel;
+    try {
+      channel.seek(transaction.getChunkSize() * sequenceId);
+      channel.write(this.data);
+    }
+    catch (IOException ex) {
+      throw Throwables.throwFormatted(ex,
+                                      RuntimeException.class,
+                                      "Unable to write chunk: {} in file {}!",
+                                      this, data.tempFile);
     }
 
+    return transaction.getPayloadCount() == ++data.count;
   }
 
 }

@@ -1,9 +1,9 @@
 package com.celeral.netlet.rpc.secure.transaction;
 
-public interface Transaction<T>
+public interface Transaction
 {
   long getId();
   long getPayloadCount();
-  void begin(ExecutionContext<T> context);
-  void end(ExecutionContext<T> context);
+  boolean begin(ExecutionContext context);
+  void end(ExecutionContext context);
 }
