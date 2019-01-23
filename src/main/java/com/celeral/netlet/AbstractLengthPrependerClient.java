@@ -19,10 +19,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+import com.celeral.utils.Throwables;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.celeral.netlet.util.Throwables;
 import com.celeral.netlet.util.VarInt;
 
 /**

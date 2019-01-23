@@ -1,6 +1,5 @@
 package com.celeral.netlet.rpc.secure;
 
-
 import java.io.IOException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -17,11 +16,12 @@ import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import javax.validation.constraints.NotNull;
 
+import com.celeral.utils.Throwables;
+
 import com.celeral.netlet.codec.CipherStatefulStreamCodec;
 import com.celeral.netlet.codec.StatefulStreamCodec;
 import com.celeral.netlet.rpc.ContextAware;
 import com.celeral.netlet.rpc.ExecutionContext;
-import com.celeral.netlet.util.Throwables;
 
 public class AuthenticatorImpl implements Authenticator
 {

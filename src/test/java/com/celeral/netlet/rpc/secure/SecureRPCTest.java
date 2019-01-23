@@ -35,7 +35,10 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
+import com.celeral.transaction.TransactionProcessor;
+import com.celeral.transaction.fileupload.UploadTransaction;
 import com.celeral.utils.NamedThreadFactory;
+import com.celeral.utils.Throwables;
 import com.esotericsoftware.kryo.serializers.JavaSerializer;
 
 import org.junit.Assert;
@@ -56,9 +59,6 @@ import com.celeral.netlet.rpc.ProxyClient;
 import com.celeral.netlet.rpc.SerdesProvider;
 import com.celeral.netlet.rpc.TimeoutPolicy;
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
-import com.celeral.netlet.rpc.secure.transaction.TransactionProcessor;
-import com.celeral.netlet.rpc.secure.upload.UploadTransaction;
-import com.celeral.netlet.util.Throwables;
 
 /**
  * @author Chetan Narsude  <chetan@apache.org>

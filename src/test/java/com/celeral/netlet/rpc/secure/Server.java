@@ -7,6 +7,8 @@ import java.security.KeyPair;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
+import com.celeral.transaction.TransactionProcessor;
+import com.celeral.transaction.processor.SerialTransactionProcessor;
 import com.esotericsoftware.kryo.serializers.JavaSerializer;
 
 import com.celeral.netlet.AbstractServer;
@@ -15,7 +17,6 @@ import com.celeral.netlet.codec.DefaultStatefulStreamCodec;
 import com.celeral.netlet.rpc.Bean;
 import com.celeral.netlet.rpc.ExecutingClient;
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
-import com.celeral.netlet.rpc.secure.transaction.TransactionProcessor;
 
 public class Server extends AbstractServer
 {

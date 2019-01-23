@@ -21,11 +21,11 @@ import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.lang.reflect.Method;
 
+import com.celeral.utils.Throwables;
 import com.esotericsoftware.kryo.DefaultSerializer;
 import com.esotericsoftware.kryo.serializers.ExternalizableSerializer;
 
 import com.celeral.netlet.rpc.MethodSerializer;
-import com.celeral.netlet.util.Throwables;
 
 /**
  *

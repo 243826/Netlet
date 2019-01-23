@@ -15,9 +15,7 @@
  */
 package com.celeral.netlet.rpc;
 
-import java.io.Closeable;
 import java.io.IOException;
-import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.channels.SelectionKey;
@@ -26,6 +24,8 @@ import java.nio.channels.SocketChannel;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import com.celeral.utils.Throwables;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -38,7 +38,6 @@ import com.celeral.netlet.DefaultEventLoop;
 import com.celeral.netlet.rpc.ConnectionAgent.SimpleConnectionAgent;
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
 import com.celeral.netlet.rpc.methodserializer.GenericStringBasedMethodSerializer;
-import com.celeral.netlet.util.Throwables;
 
 /**
  * @author Chetan Narsude  <chetan@apache.org>
