@@ -14,6 +14,7 @@ public interface Authenticator
    * @return introduction of the callee if it recognizes the caller and wants to chat with it
    */
   Introduction getPublicKey(Introduction client);
+
   /**
    * Prove the identity of the client to the server and vice a versa thus establishing trust and creating a secure session for communication.
    * The client sends the server a payload which is encrypted by the

@@ -25,7 +25,6 @@ import com.celeral.utils.Throwables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.celeral.netlet.codec.StatefulStreamCodec;
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
 
 /**
@@ -119,12 +118,12 @@ public class ExecutingClient extends Client<Client.RPC>
       else {
         Class<?>[] types = method.getParameterTypes();
         if (types.length == 0) {
-          objectMethod = object.getClass().getMethod(method.getName(), ExecutionContext.class);
-          retval = objectMethod.invoke(object, getExecutionContext());
+          objectMethod = object.getClass().getMethod(method.getName(), annotation.value());
+          retval = objectMethod.invoke(object, getExecutionContext(annotation.value()));
         }
         else {
           Class<?>[] newTypes = new Class<?>[types.length + 1];
-          newTypes[0] = ExecutionContext.class;
+          newTypes[0] = annotation.value();
           int t = 1;
           for (Class<?> type : types) {
             newTypes[t++] = type;
@@ -132,7 +131,7 @@ public class ExecutingClient extends Client<Client.RPC>
           objectMethod = object.getClass().getMethod(method.getName(), newTypes);
 
           Object[] arguments = new Object[message.args.length + 1];
-          arguments[0] = getExecutionContext();
+          arguments[0] = getExecutionContext(annotation.value());
           int o = 1;
           for (Object arg : message.args) {
             arguments[o++] = arg;
@@ -155,16 +154,9 @@ public class ExecutingClient extends Client<Client.RPC>
     send(rr);
   }
 
-  private ExecutionContext getExecutionContext()
+  protected Object getExecutionContext(Class<?> contextType)
   {
-    return new ExecutionContext()
-    {
-      @Override
-      public StatefulStreamCodec<Object> getSerdes()
-      {
-        return ExecutingClient.this.getSerdes();
-      }
-    };
+    return null;
   }
 
   public static final Logger logger = LoggerFactory.getLogger(ExecutingClient.class);

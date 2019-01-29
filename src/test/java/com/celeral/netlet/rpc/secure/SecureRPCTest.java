@@ -100,39 +100,39 @@ public class SecureRPCTest
                                                 Authenticator.class.getClassLoader(),
                                                 new Class<?>[]{Authenticator.class},
                                                 transport);
-      StatefulStreamCodec<Object> unwrapped = Synchronized.unwrapIfWrapped(transport.client.getSerdes());
+    StatefulStreamCodec<Object> unwrapped = Synchronized.unwrapIfWrapped(transport.client.getSerdes());
+    if (unwrapped instanceof CipherStatefulStreamCodec) {
+      CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrapped;
+      serdes.initCipher(null,
+                        CipherStatefulStreamCodec.getCipher(Cipher.DECRYPT_MODE, clientKeyPair.getPrivate()));
+    }
+
+    final BasicIntroduction clientIntro = new BasicIntroduction("0.0.00", alias, clientKeyPair.getPublic());
+    final Authenticator.Introduction serverIntro = authenticator.getPublicKey(clientIntro);
+
+    if (areCompatible(clientIntro, serverIntro)) {
+      PKIChallenge challenge = new PKIChallenge(alias);
       if (unwrapped instanceof CipherStatefulStreamCodec) {
         CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrapped;
-        serdes.initCipher(null,
-                          CipherStatefulStreamCodec.getCipher(Cipher.DECRYPT_MODE, clientKeyPair.getPrivate()));
+        SecretKey key = new SecretKeySpec(challenge.getSecret(), "AES");
+        IvParameterSpec iv = new IvParameterSpec(challenge.getInitializationVector());
+        serdes.initCipher(CipherStatefulStreamCodec.getCipher(Cipher.ENCRYPT_MODE, serverIntro.getKey()),
+                          CipherStatefulStreamCodec.getCipher(Cipher.DECRYPT_MODE, key, iv));
       }
 
-      final BasicIntroduction clientIntro = new BasicIntroduction("0.0.00", alias, clientKeyPair.getPublic());
-      final Authenticator.Introduction serverIntro = authenticator.getPublicKey(clientIntro);
+      Authenticator.Response response = authenticator.establishSession(challenge);
+      Assert.assertArrayEquals(challenge.getSecret(), response.getSecret());
+      logger.debug("{} == {}", challenge.getSecret(), response.getSecret());
 
-      if (areCompatible(clientIntro, serverIntro)) {
-        PKIChallenge challenge = new PKIChallenge(alias);
-        if (unwrapped instanceof CipherStatefulStreamCodec) {
-          CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrapped;
-          SecretKey key = new SecretKeySpec(challenge.getSecret(), "AES");
-          IvParameterSpec iv = new IvParameterSpec(challenge.getInitializationVector());
-          serdes.initCipher(CipherStatefulStreamCodec.getCipher(Cipher.ENCRYPT_MODE, serverIntro.getKey()),
-                            CipherStatefulStreamCodec.getCipher(Cipher.DECRYPT_MODE, key, iv));
-        }
-
-        Authenticator.Response response = authenticator.establishSession(challenge);
-        Assert.assertArrayEquals(challenge.getSecret(), response.getSecret());
-        logger.debug("{} == {}", challenge.getSecret(), response.getSecret());
-
-        if (unwrapped instanceof CipherStatefulStreamCodec) {
-          CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrapped;
-          SecretKey key = new SecretKeySpec(response.getSecret(), "AES");
-          IvParameterSpec iv = new IvParameterSpec(challenge.getInitializationVector());
-          serdes.initCipher(CipherStatefulStreamCodec.getCipher(Cipher.ENCRYPT_MODE, key, iv),
-                            CipherStatefulStreamCodec.getCipher(Cipher.DECRYPT_MODE, key, iv));
-        }
-        transact(client, transport, response, challenge);
+      if (unwrapped instanceof CipherStatefulStreamCodec) {
+        CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrapped;
+        SecretKey key = new SecretKeySpec(response.getSecret(), "AES");
+        IvParameterSpec iv = new IvParameterSpec(challenge.getInitializationVector());
+        serdes.initCipher(CipherStatefulStreamCodec.getCipher(Cipher.ENCRYPT_MODE, key, iv),
+                          CipherStatefulStreamCodec.getCipher(Cipher.DECRYPT_MODE, key, iv));
       }
+      transact(client, transport, response, challenge);
+    }
   }
 
   private boolean areCompatible(BasicIntroduction clientIntro, Authenticator.Introduction serverIntro)
@@ -155,7 +155,6 @@ public class SecureRPCTest
       if (unwrapped instanceof CipherStatefulStreamCodec) {
         CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrapped;
         SecretKey key = new SecretKeySpec(response.getSecret(), "AES");
-        //GCMParameterSpec iv = new GCMParameterSpec(128, challenge.getInitializationVector());
         IvParameterSpec iv = new IvParameterSpec(challenge.getInitializationVector());
         serdes.initCipher(CipherStatefulStreamCodec.getCipher(Cipher.ENCRYPT_MODE, key, iv),
                           CipherStatefulStreamCodec.getCipher(Cipher.DECRYPT_MODE, key, iv));
@@ -252,8 +251,8 @@ public class SecureRPCTest
           ProxyClient client = new ProxyClient(ExternalizableMethodSerializer.SINGLETON,
                                                clientExecutor);
           try (ProxyClient.DelegationTransport transport = client.new DelegationTransport(connectionAgent,
-                                                                                     TimeoutPolicy.NO_TIMEOUT_POLICY,
-                                                                                     null)) {
+                                                                                          TimeoutPolicy.NO_TIMEOUT_POLICY,
+                                                                                          null)) {
             transport.client.setSerdes(serdesProvider.newSerdes(transport.client.getSerdes()));
             authenticate(client, transport);
           }

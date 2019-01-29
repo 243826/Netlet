@@ -21,7 +21,6 @@ import com.celeral.utils.Throwables;
 import com.celeral.netlet.codec.CipherStatefulStreamCodec;
 import com.celeral.netlet.codec.StatefulStreamCodec;
 import com.celeral.netlet.rpc.ContextAware;
-import com.celeral.netlet.rpc.ExecutionContext;
 
 public class AuthenticatorImpl implements Authenticator
 {
@@ -41,7 +40,7 @@ public class AuthenticatorImpl implements Authenticator
     catch (KeyStoreException | IOException | NoSuchAlgorithmException | CertificateException ex) {
       throw Throwables.throwFormatted(ex,
                                       IllegalStateException.class,
-                                      "Unable to create a keystore to process they keys!");
+                                      "Unable to create a keystore to process the keys!");
     }
 
     try {
@@ -67,7 +66,7 @@ public class AuthenticatorImpl implements Authenticator
   }
 
   @Override
-  @ContextAware
+  @ContextAware(StatefulStreamCodec.class)
   public Introduction getPublicKey(Introduction client)
   {
     if (client.getKey().equals(publicKeys.get(client.getId()))) {
@@ -77,9 +76,9 @@ public class AuthenticatorImpl implements Authenticator
     return null;
   }
 
-  public Introduction getPublicKey(ExecutionContext context, Introduction client)
+  public Introduction getPublicKey(StatefulStreamCodec<Object> codec, Introduction client)
   {
-    StatefulStreamCodec<Object> unwrapped = StatefulStreamCodec.Synchronized.unwrapIfWrapped(context.getSerdes());
+    StatefulStreamCodec<Object> unwrapped = StatefulStreamCodec.Synchronized.unwrapIfWrapped(codec);
     if (unwrapped instanceof CipherStatefulStreamCodec) {
       CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrapped;
       serdes.initCipher(CipherStatefulStreamCodec.getCipher(Cipher.ENCRYPT_MODE, client.getKey()),
@@ -89,17 +88,16 @@ public class AuthenticatorImpl implements Authenticator
     return getPublicKey(client);
   }
 
-
   @Override
-  @ContextAware
+  @ContextAware(StatefulStreamCodec.class)
   public Response establishSession(@NotNull Challenge challenge)
   {
     return new PKIResponse(0, challenge.getSecret());
   }
 
-  public Response establishSession(ExecutionContext context, Challenge challenge)
+  public Response establishSession(StatefulStreamCodec<Object> codec, Challenge challenge)
   {
-    StatefulStreamCodec<Object> unwrapped = StatefulStreamCodec.Synchronized.unwrapIfWrapped(context.getSerdes());
+    StatefulStreamCodec<Object> unwrapped = StatefulStreamCodec.Synchronized.unwrapIfWrapped(codec);
     if (unwrapped instanceof CipherStatefulStreamCodec) {
       CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrapped;
       SecretKey key = new SecretKeySpec(challenge.getSecret(), "AES");
