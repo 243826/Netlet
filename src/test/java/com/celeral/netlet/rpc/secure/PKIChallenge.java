@@ -1,10 +1,15 @@
 package com.celeral.netlet.rpc.secure;
 
+import java.util.UUID;
+
+import com.esotericsoftware.kryo.serializers.FieldSerializer;
+
 import com.celeral.netlet.codec.CipherStatefulStreamCodec;
 
 public class PKIChallenge implements Authenticator.Challenge
 {
-  String id;
+  @FieldSerializer.Bind(UUIDSerializer.class)
+  UUID id;
   byte[] token;
   private byte[] iv;
 
@@ -13,7 +18,7 @@ public class PKIChallenge implements Authenticator.Challenge
     /* jlto */
   }
 
-  public PKIChallenge(String id)
+  public PKIChallenge(UUID id)
   {
     this.id = id;
     this.token = CipherStatefulStreamCodec.getRandomBytes(16);
@@ -21,7 +26,7 @@ public class PKIChallenge implements Authenticator.Challenge
   }
 
   @Override
-  public String getId()
+  public UUID getId()
   {
     return id;
   }

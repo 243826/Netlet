@@ -9,6 +9,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.cert.CertificateException;
 import java.util.HashMap;
+import java.util.UUID;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -26,7 +27,7 @@ public class AuthenticatorImpl implements Authenticator
 {
   private static final char[] PASSWORD = "Test123".toCharArray();
 
-  HashMap<String, PublicKey> publicKeys = new HashMap<>();
+  HashMap<UUID, PublicKey> publicKeys = new HashMap<>();
 
   KeyStore keystore;
   KeyPair master;
@@ -53,9 +54,9 @@ public class AuthenticatorImpl implements Authenticator
     }
   }
 
-  public void add(String alias, PublicKey entry)
+  public void add(UUID uuid, PublicKey entry)
   {
-    publicKeys.put(alias, entry);
+    publicKeys.put(uuid, entry);
   }
 
   private KeyPair createMasterKeys() throws NoSuchAlgorithmException
@@ -69,8 +70,9 @@ public class AuthenticatorImpl implements Authenticator
   @ContextAware(StatefulStreamCodec.class)
   public Introduction getPublicKey(Introduction client)
   {
-    if (client.getKey().equals(publicKeys.get(client.getId()))) {
-      return new BasicIntroduction("0.0.00", "master", master.getPublic());
+    UUID uuid = UUID.nameUUIDFromBytes(client.getKey().getEncoded());
+    if (client.getKey().equals(publicKeys.get(uuid))) {
+      return new BasicIntroduction("0.0.00", master.getPublic());
     }
 
     return null;

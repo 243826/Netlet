@@ -1,6 +1,7 @@
 package com.celeral.netlet.rpc.secure;
 
 import java.security.PublicKey;
+import java.util.UUID;
 
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
@@ -38,7 +39,7 @@ public interface Authenticator
      *
      * @return id of the entity initiating request for the session
      */
-    String getId();
+    UUID getId();
 
     /**
      * Randomly generated secret either 16 bytes long or 32 bytes long which
@@ -72,13 +73,6 @@ public interface Authenticator
 
   interface Introduction
   {
-    /**
-     * Id of the entity which is being introduced using this object.
-     *
-     * @return the id of the entity represented
-     */
-    String getId();
-
     /**
      * The semantic version of the protocol the entity can talk.
      *

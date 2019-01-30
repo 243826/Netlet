@@ -119,7 +119,7 @@ public class ExecutingClient extends Client<Client.RPC>
         Class<?>[] types = method.getParameterTypes();
         if (types.length == 0) {
           objectMethod = object.getClass().getMethod(method.getName(), annotation.value());
-          retval = objectMethod.invoke(object, getExecutionContext(annotation.value()));
+          retval = objectMethod.invoke(object, getContext(object, method, annotation.value()));
         }
         else {
           Class<?>[] newTypes = new Class<?>[types.length + 1];
@@ -131,7 +131,7 @@ public class ExecutingClient extends Client<Client.RPC>
           objectMethod = object.getClass().getMethod(method.getName(), newTypes);
 
           Object[] arguments = new Object[message.args.length + 1];
-          arguments[0] = getExecutionContext(annotation.value());
+          arguments[0] = getContext(object, method, annotation.value());
           int o = 1;
           for (Object arg : message.args) {
             arguments[o++] = arg;
@@ -154,7 +154,7 @@ public class ExecutingClient extends Client<Client.RPC>
     send(rr);
   }
 
-  protected Object getExecutionContext(Class<?> contextType)
+  protected Object getContext(Object object, Method method, Class<?> contextType)
   {
     return null;
   }

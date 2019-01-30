@@ -25,8 +25,10 @@ import java.nio.file.Paths;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -93,7 +95,8 @@ public class SecureRPCTest
 
   private void authenticate(ProxyClient client, ProxyClient.DelegationTransport transport)
   {
-    final String alias = Integer.toString(new Random(System.currentTimeMillis()).nextInt(clientKeys.keys.size()));
+    ArrayList<UUID> uuids = new ArrayList<>(clientKeys.keys.keySet());
+    final UUID alias = uuids.get(new Random(System.currentTimeMillis()).nextInt(clientKeys.keys.size()));
     final KeyPair clientKeyPair = clientKeys.keys.get(alias);
 
     Authenticator authenticator = client.create("hello",
@@ -107,7 +110,7 @@ public class SecureRPCTest
                         CipherStatefulStreamCodec.getCipher(Cipher.DECRYPT_MODE, clientKeyPair.getPrivate()));
     }
 
-    final BasicIntroduction clientIntro = new BasicIntroduction("0.0.00", alias, clientKeyPair.getPublic());
+    final BasicIntroduction clientIntro = new BasicIntroduction("0.0.00", clientKeyPair.getPublic());
     final Authenticator.Introduction serverIntro = authenticator.getPublicKey(clientIntro);
 
     if (areCompatible(clientIntro, serverIntro)) {
@@ -197,7 +200,7 @@ public class SecureRPCTest
 
   public static class ClientKeys
   {
-    HashMap<String, KeyPair> keys;
+    HashMap<UUID, KeyPair> keys;
 
     public ClientKeys()
     {
@@ -213,7 +216,9 @@ public class SecureRPCTest
         rsaGenerator.initialize(2048);
 
         for (int i = 0; i < count; i++) {
-          keys.put(Integer.toString(i), rsaGenerator.generateKeyPair());
+          KeyPair keyPair = rsaGenerator.generateKeyPair();
+
+          keys.put(UUID.nameUUIDFromBytes(keyPair.getPublic().getEncoded()), keyPair);
         }
       }
       catch (NoSuchAlgorithmException ex) {

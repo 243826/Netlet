@@ -1,10 +1,12 @@
 package com.celeral.netlet.rpc.secure;
 
+import java.lang.reflect.Method;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.security.KeyPair;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.Executor;
 
 import com.celeral.transaction.TransactionProcessor;
@@ -25,7 +27,7 @@ public class Server extends AbstractServer
   AuthenticatorImpl iceBreaker = new AuthenticatorImpl();
 
   {
-    for (Map.Entry<String, KeyPair> entry : SecureRPCTest.clientKeys.keys.entrySet()) {
+    for (Map.Entry<UUID, KeyPair> entry : SecureRPCTest.clientKeys.keys.entrySet()) {
       iceBreaker.add(entry.getKey(), entry.getValue().getPublic());
     }
   }
@@ -72,7 +74,7 @@ public class Server extends AbstractServer
 
   class AuthenticatedExecutingClient extends ExecutingClient
   {
-    long clientId;
+    UUID clientId;
 
     AuthenticatedExecutingClient()
     {
@@ -88,7 +90,7 @@ public class Server extends AbstractServer
     }
 
     @Override
-    protected Object getExecutionContext(Class<?> contextType)
+    protected Object getContext(Object object, Method method, Class<?> contextType)
     {
       if (contextType == StatefulStreamCodec.class) {
         return getSerdes();
