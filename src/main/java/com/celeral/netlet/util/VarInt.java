@@ -86,6 +86,12 @@ public class VarInt
     {
     }
 
+    @Override
+    public String toString()
+    {
+      return Integer.toString(integer);
+    }
+
     public int integer;
   }
 

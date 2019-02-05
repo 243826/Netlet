@@ -37,6 +37,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.celeral.netlet.util.Slice;
+import com.celeral.netlet.util.VarInt;
 
 /**
  * @author Chetan Narsude <chetan@celeral.com>
@@ -125,20 +126,23 @@ public class CipherStatefulStreamCodec<T> implements StatefulStreamCodec<T>
         Cipher aes = CipherStatefulStreamCodec.getCipher(mode, key, spec);
 
         byte[] encryptedSecretIV = cipher.doFinal(secretIV);
+        byte[] encryptedIVLength = new byte[VarInt.getSize(encryptedSecretIV.length)];
+        VarInt.write(encryptedSecretIV.length, encryptedIVLength, 0);
 
         slice.offset += preservedLength;
         slice.length -= preservedLength;
-        return CipherStatefulStreamCodec.doFinal(aes, slice, preservedBytes, encryptedSecretIV);
+        return CipherStatefulStreamCodec.doFinal(aes, slice, preservedBytes, encryptedIVLength, encryptedSecretIV);
       }
       else if (mode == Cipher.DECRYPT_MODE) {
-        int encryptedSecretIVSize = cipher.getOutputSize(32);
-        byte[] secretIV = cipher.doFinal(slice.buffer, slice.offset + preservedLength, encryptedSecretIVSize);
+        VarInt.MutableInt secretKeyOffset = new VarInt.MutableInt();
+        int encryptedSecretIVSize = VarInt.read(slice.buffer, slice.offset + preservedLength, slice.offset + slice.length, secretKeyOffset);
+        byte[] secretIV = cipher.doFinal(slice.buffer, secretKeyOffset.integer, encryptedSecretIVSize);
         SecretKey key = new SecretKeySpec(secretIV, 0, 16, "AES");
         AlgorithmParameterSpec spec = new IvParameterSpec(secretIV, 16, 16);
         Cipher aes = CipherStatefulStreamCodec.getCipher(mode, key, spec);
 
-        slice.offset += preservedLength + encryptedSecretIVSize;
-        slice.length -= preservedLength + encryptedSecretIVSize;
+        slice.length -= secretKeyOffset.integer + encryptedSecretIVSize - slice.offset;
+        slice.offset = secretKeyOffset.integer + encryptedSecretIVSize;
         return CipherStatefulStreamCodec.doFinal(aes, slice, preservedBytes);
       }
     }
