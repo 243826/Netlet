@@ -11,7 +11,6 @@ import java.util.concurrent.Executor;
 
 import com.celeral.transaction.TransactionProcessor;
 import com.celeral.transaction.processor.SerialTransactionProcessor;
-import com.esotericsoftware.kryo.serializers.JavaSerializer;
 
 import com.celeral.netlet.AbstractServer;
 import com.celeral.netlet.codec.CipherStatefulStreamCodec;
@@ -74,18 +73,18 @@ public class Server extends AbstractServer
 
   class AuthenticatedExecutingClient extends ExecutingClient
   {
-    UUID clientId;
+    UUID clientId; // is this the right place to pass on the client id?
 
     AuthenticatedExecutingClient()
     {
       super(Server.this.bean, ExternalizableMethodSerializer.SINGLETON, executor);
       DefaultStatefulStreamCodec<Object> codec = (DefaultStatefulStreamCodec<Object>)getSerdes();
-      try {
-        codec.register(Class.forName("sun.security.rsa.RSAPublicKeyImpl"), new JavaSerializer());
-      }
-      catch (ClassNotFoundException ex) {
-        throw new RuntimeException(ex);
-      }
+//      try {
+//        codec.register(Class.forName("sun.security.rsa.RSAPublicKeyImpl"), new JavaSerializer());
+//      }
+//      catch (ClassNotFoundException ex) {
+//        throw new RuntimeException(ex);
+//      }
       setSerdes(new CipherStatefulStreamCodec<>(codec, null, null));
     }
 

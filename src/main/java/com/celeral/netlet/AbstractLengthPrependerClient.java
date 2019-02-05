@@ -16,6 +16,7 @@
 package com.celeral.netlet;
 
 import java.io.IOException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
@@ -52,7 +53,8 @@ public abstract class AbstractLengthPrependerClient extends AbstractClient imple
     super(sendBufferSize);
     buffer = readbuffer;
     byteBuffer = ByteBuffer.wrap(readbuffer);
-    byteBuffer.position(position);
+    /* casting as a workaround for covarients in java9 */
+    ((Buffer)byteBuffer).position(position);
     writeOffset = position;
     readOffset = position;
   }
@@ -147,7 +149,7 @@ public abstract class AbstractLengthPrependerClient extends AbstractClient imple
               writeOffset -= readOffset;
               readOffset = 0;
               byteBuffer = ByteBuffer.wrap(buffer);
-              byteBuffer.position(writeOffset);
+              ((Buffer)byteBuffer).position(writeOffset);
             }
           }
           size = 0;
@@ -174,7 +176,7 @@ public abstract class AbstractLengthPrependerClient extends AbstractClient imple
           writeOffset -= readOffset;
           readOffset = 0;
           byteBuffer = ByteBuffer.wrap(newArray);
-          byteBuffer.position(writeOffset);
+          ((Buffer)byteBuffer).position(writeOffset);
         }
         else {
           byte[] newArray = new byte[buffer.length];
@@ -183,7 +185,7 @@ public abstract class AbstractLengthPrependerClient extends AbstractClient imple
           writeOffset -= readOffset;
           readOffset = 0;
           byteBuffer = ByteBuffer.wrap(buffer);
-          byteBuffer.position(writeOffset);
+          ((Buffer)byteBuffer).position(writeOffset);
         }
         endMessages();
         return;

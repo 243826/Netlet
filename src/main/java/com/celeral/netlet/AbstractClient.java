@@ -16,6 +16,7 @@
 package com.celeral.netlet;
 
 import java.io.IOException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
@@ -205,7 +206,7 @@ public abstract class AbstractClient implements ClientListener
     /*
      * switch to the read mode!
      */
-    writeBuffer.flip();
+    ((Buffer)writeBuffer).flip();
 
     SocketChannel channel = (SocketChannel)key.channel();
     while ((remaining = writeBuffer.remaining()) > 0) {
@@ -221,7 +222,7 @@ public abstract class AbstractClient implements ClientListener
         /*
          * switch back to the write mode.
          */
-        writeBuffer.clear();
+        ((Buffer)writeBuffer).clear();
 
         remaining = writeBuffer.capacity();
         do {
@@ -243,14 +244,14 @@ public abstract class AbstractClient implements ClientListener
         /*
          * switch to the read mode.
          */
-        writeBuffer.flip();
+        ((Buffer)writeBuffer).flip();
       }
     }
 
     /*
      * switch back to fill mode.
      */
-    writeBuffer.clear();
+    ((Buffer)writeBuffer).clear();
     synchronized (bufferOfBuffers) {
       if (sendBuffer4Polls.isEmpty()) {
         if (sendBuffer4Offers == sendBuffer4Polls) {

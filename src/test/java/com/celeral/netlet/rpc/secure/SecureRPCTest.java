@@ -41,7 +41,6 @@ import com.celeral.transaction.TransactionProcessor;
 import com.celeral.transaction.fileupload.UploadTransaction;
 import com.celeral.utils.NamedThreadFactory;
 import com.celeral.utils.Throwables;
-import com.esotericsoftware.kryo.serializers.JavaSerializer;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -80,14 +79,15 @@ public class SecureRPCTest
     public static StatefulStreamCodec<Object> createSerdes(StatefulStreamCodec<Object> serdes)
     {
       DefaultStatefulStreamCodec<Object> codec = (DefaultStatefulStreamCodec<Object>)serdes;
-      try {
-        codec.register(Class.forName("sun.security.rsa.RSAPublicKeyImpl"), new JavaSerializer());
-        return Synchronized.wrap(new CipherStatefulStreamCodec<>(codec, null, null));
-      }
-      catch (ClassNotFoundException ex) {
-        throw Throwables.throwFormatted(ex, IllegalStateException.class,
-                                        "Unable to initialize the serializer/deserializer!");
-      }
+      return Synchronized.wrap(new CipherStatefulStreamCodec<>(codec, null, null));
+//      try {
+//        codec.register(Class.forName("sun.security.rsa.RSAPublicKeyImpl"), new JavaSerializer());
+//        return Synchronized.wrap(new CipherStatefulStreamCodec<>(codec, null, null));
+//      }
+//      catch (ClassNotFoundException ex) {
+//        throw Throwables.throwFormatted(ex, IllegalStateException.class,
+//                                        "Unable to initialize the serializer/deserializer!");
+//      }
     }
   }
 

@@ -2,9 +2,13 @@ package com.celeral.netlet.rpc.secure;
 
 import java.security.PublicKey;
 
+import com.esotericsoftware.kryo.serializers.FieldSerializer;
+import com.esotericsoftware.kryo.serializers.JavaSerializer;
+
 public class BasicIntroduction implements Authenticator.Introduction
 {
   final String version;
+  @FieldSerializer.Bind(JavaSerializer.class)
   final PublicKey key;
 
   private BasicIntroduction()
