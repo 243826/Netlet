@@ -21,6 +21,7 @@ import java.security.Key;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
+import java.security.spec.MGF1ParameterSpec;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -29,6 +30,8 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.ShortBufferException;
 import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.OAEPParameterSpec;
+import javax.crypto.spec.PSource;
 import javax.crypto.spec.SecretKeySpec;
 
 import com.celeral.utils.Throwables;
@@ -45,7 +48,7 @@ import com.celeral.netlet.util.VarInt;
 public class CipherStatefulStreamCodec<T> implements StatefulStreamCodec<T>
 {
   public static final String AES_CBC_PKCS_5_PADDING = "AES/CBC/PKCS5PADDING";
-  private static final String RSAECBOAEP_WITH_SHA1_AND_MGF1_PADDING = "RSA/ECB/OAEPWithSHA1AndMGF1Padding";
+  public static final String RSA_ECB_OAEPPADDING = "RSA/ECB/OAEPPadding";
   public static SecureRandom random = new SecureRandom();
 
   public static byte[] getRandomBytes(int size)
@@ -118,7 +121,7 @@ public class CipherStatefulStreamCodec<T> implements StatefulStreamCodec<T>
       slice.length -= preservedLength;
       return CipherStatefulStreamCodec.doFinal(cipher, slice, preservedBytes);
     }
-    else if (RSAECBOAEP_WITH_SHA1_AND_MGF1_PADDING.equals(algorithm)) {
+    else if (RSA_ECB_OAEPPADDING.equals(algorithm)) {
       if (mode == Cipher.ENCRYPT_MODE) {
         byte[] secretIV = CipherStatefulStreamCodec.getRandomBytes(32);
         SecretKey key = new SecretKeySpec(secretIV, 0, 16, "AES");
@@ -221,11 +224,12 @@ public class CipherStatefulStreamCodec<T> implements StatefulStreamCodec<T>
     }
 
     try {
-      Cipher instance = Cipher.getInstance(RSAECBOAEP_WITH_SHA1_AND_MGF1_PADDING);
-      instance.init(mode, key);
+      Cipher instance = Cipher.getInstance(RSA_ECB_OAEPPADDING);
+      OAEPParameterSpec oaepParams = new OAEPParameterSpec("SHA-256", "MGF1", MGF1ParameterSpec.SHA256, PSource.PSpecified.DEFAULT);
+      instance.init(mode, key, oaepParams);
       return instance;
     }
-    catch (NoSuchPaddingException | NoSuchAlgorithmException | InvalidKeyException ex) {
+    catch (NoSuchPaddingException | NoSuchAlgorithmException | InvalidKeyException | InvalidAlgorithmParameterException ex) {
       throw Throwables.throwFormatted(ex, RuntimeException.class, "Unable to create {} mode instance of Cipher for key {}", mode, key);
     }
   }
