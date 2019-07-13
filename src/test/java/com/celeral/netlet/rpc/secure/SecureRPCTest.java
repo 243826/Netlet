@@ -29,8 +29,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -60,6 +64,8 @@ import com.celeral.netlet.rpc.ProxyClient;
 import com.celeral.netlet.rpc.SerdesProvider;
 import com.celeral.netlet.rpc.TimeoutPolicy;
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
+
+import static java.lang.Thread.sleep;
 
 /**
  * @author Chetan Narsude  <chetan@apache.org>
@@ -91,7 +97,7 @@ public class SecureRPCTest
     }
   }
 
-  public static CipherSerdesProvider serdesProvider = new CipherSerdesProvider();
+  public static final CipherSerdesProvider serdesProvider = new CipherSerdesProvider();
 
   private void authenticate(ProxyClient client, ProxyClient.DelegationTransport transport)
   {
@@ -143,6 +149,7 @@ public class SecureRPCTest
     return true;
   }
 
+  @SuppressWarnings("SleepWhileInLoop")
   private void transact(ProxyClient client, ProxyClient.DelegationTransport transport, Authenticator.Response response, Authenticator.Challenge challenge)
   {
     Assert.assertArrayEquals(challenge.getSecret(), response.getSecret());
@@ -186,13 +193,13 @@ public class SecureRPCTest
 
       try {
         while (!destination.exists()) {
-          Thread.sleep(5);
+          sleep(5);
         }
 
         Assert.assertArrayEquals("files identical",
                                  Files.readAllBytes(Paths.get(source.toString())), Files.readAllBytes(Paths.get(destination.toString())));
       }
-      catch (Exception ex) {
+      catch (IOException | InterruptedException ex) {
         Throwables.wrapIfChecked(ex);
       }
     }
@@ -232,7 +239,7 @@ public class SecureRPCTest
   static ClientKeys clientKeys = new ClientKeys();
 
   @Test
-  public void testAuthenticator() throws IOException, InterruptedException
+  public void testAuthenticator() throws IOException, InterruptedException, TimeoutException, ExecutionException
   {
     ExecutorService serverExecutor = Executors.newFixedThreadPool(2, new NamedThreadFactory(new ThreadGroup("server")));
     ExecutorService clientExecutor = Executors.newFixedThreadPool(2, new NamedThreadFactory(new ThreadGroup("client")));
@@ -245,14 +252,8 @@ public class SecureRPCTest
         el.start(new InetSocketAddress(0), server);
 
         try {
-          SocketAddress si;
-          synchronized (server) {
-            while ((si = server.getServerAddress()) == null) {
-              server.wait();
-            }
-          }
-
-          SimpleConnectionAgent connectionAgent = new SimpleConnectionAgent(si, el);
+          Future<SocketAddress> socketAddressFuture = server.getServerAddressAsync();
+          SimpleConnectionAgent connectionAgent = new SimpleConnectionAgent(socketAddressFuture.get(10, TimeUnit.SECONDS), el);
           ProxyClient client = new ProxyClient(ExternalizableMethodSerializer.SINGLETON,
                                                clientExecutor);
           try (ProxyClient.DelegationTransport transport = client.new DelegationTransport(connectionAgent,
