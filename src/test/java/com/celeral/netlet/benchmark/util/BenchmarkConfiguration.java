@@ -15,8 +15,8 @@
  */
 package com.celeral.netlet.benchmark.util;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import org.apache.commons.configuration.CompositeConfiguration;
 import org.apache.commons.configuration.ConfigurationException;
@@ -26,7 +26,7 @@ import org.apache.commons.configuration.SystemConfiguration;
 
 public class BenchmarkConfiguration
 {
-  private static final Logger logger = LoggerFactory.getLogger(BenchmarkConfiguration.class);
+  private static final Logger logger = LogManager.getLogger(BenchmarkConfiguration.class);
 
   public static final String messageCountName = "com.celeral.netlet.benchmark.message.count";
   public static final String messageSizeName = "com.celeral.netlet.benchmark.message.size";

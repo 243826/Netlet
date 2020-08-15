@@ -241,5 +241,5 @@ public class DefaultStatefulStreamCodec<T> extends Kryo implements StatefulStrea
 
   }
 
-  private static final Logger logger = LogManager.getLogger();
+  private static final Logger logger = LogManager.getLogger(DefaultStatefulStreamCodec.class);
 }

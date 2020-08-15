@@ -159,5 +159,5 @@ public class ExecutingClient extends Client<Client.RPC>
     return null;
   }
 
-  private static final Logger logger = LogManager.getLogger();
+  private static final Logger logger = LogManager.getLogger(ExecutingClient.class);
 }

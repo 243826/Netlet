@@ -375,7 +375,7 @@ public abstract class AbstractClient implements ClientListener
     }
   }
 
-  private static final Logger logger = LogManager.getLogger();
+  private static final Logger logger = LogManager.getLogger(AbstractClient.class);
 
   /* implemented here since it requires access to logger. */
   static {

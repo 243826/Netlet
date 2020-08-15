@@ -290,5 +290,5 @@ public abstract class AbstractLengthPrependerClient extends AbstractClient imple
     }
   }
 
-  private static final Logger logger = LogManager.getLogger();
+  private static final Logger logger = LogManager.getLogger(AbstractLengthPrependerClient.class);
 }

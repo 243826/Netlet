@@ -55,5 +55,5 @@ public abstract class AbstractServer implements ServerListener
     return boundAddress;
   }
 
-  private static final Logger logger = LogManager.getLogger();
+  private static final Logger logger = LogManager.getLogger(AbstractServer.class);
 }

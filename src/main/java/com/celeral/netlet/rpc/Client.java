@@ -316,5 +316,5 @@ public abstract class Client<T> extends AbstractLengthPrependerClient
 
   }
 
-  private static final Logger logger = LogManager.getLogger();
+  private static final Logger logger = LogManager.getLogger(Client.class);
 }

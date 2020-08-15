@@ -22,8 +22,8 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.celeral.netlet.AbstractClient;
 import com.celeral.netlet.AbstractServer;
@@ -48,7 +48,7 @@ import static java.lang.Thread.sleep;
  */
 public class EchoTcpServer extends AbstractServer
 {
-  private static final Logger logger = LoggerFactory.getLogger(EchoTcpServer.class);
+  private static final Logger logger = LogManager.getLogger(EchoTcpServer.class);
 
   @Override
   public void handleException(Exception e, EventLoop eventLoop)

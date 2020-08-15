@@ -233,5 +233,5 @@ public class CipherStatefulStreamCodec<T> implements StatefulStreamCodec<T>
     }
   }
 
-  private static final Logger logger = LogManager.getLogger();
+  private static final Logger logger = LogManager.getLogger(CipherStatefulStreamCodec.class);
 }

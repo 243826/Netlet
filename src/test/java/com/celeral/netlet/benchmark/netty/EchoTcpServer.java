@@ -17,9 +17,6 @@ package com.celeral.netlet.benchmark.netty;
 
 import java.io.IOException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
@@ -31,6 +28,9 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.celeral.netlet.benchmark.util.BenchmarkConfiguration;
 import com.celeral.netlet.benchmark.util.BenchmarkResults;
@@ -47,7 +47,7 @@ import com.celeral.netlet.benchmark.util.BenchmarkResults;
 public class EchoTcpServer extends ChannelHandlerAdapter
 {
 
-	private static final Logger logger = LoggerFactory.getLogger(EchoTcpServer.class);
+	private static final Logger logger = LogManager.getLogger(EchoTcpServer.class);
 
 	private final BenchmarkResults benchmarkResults = new BenchmarkResults(BenchmarkConfiguration.messageCount);
 	private long start;

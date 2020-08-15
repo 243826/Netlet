@@ -31,8 +31,8 @@ import java.util.Set;
 import org.junit.Assert;
 import org.junit.Test;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.celeral.netlet.ServerTest.ServerImpl;
 import com.celeral.netlet.util.CircularBuffer;
@@ -403,5 +403,5 @@ public class AbstractClientTest
 
   }
 
-  private static final Logger logger = LoggerFactory.getLogger(AbstractClientTest.class);
+  private static final Logger logger = LogManager.getLogger(AbstractClientTest.class);
 }

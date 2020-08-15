@@ -30,8 +30,8 @@ import com.celeral.utils.Throwables;
 import org.junit.Assert;
 import org.junit.Test;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.celeral.netlet.AbstractServer;
 import com.celeral.netlet.DefaultEventLoop;
@@ -82,7 +82,7 @@ public class RPCTest
       return greeted;
     }
 
-    private static final Logger logger = LoggerFactory.getLogger(Hello.class);
+    private static final Logger logger = LogManager.getLogger(HelloImpl.class);
   }
 
   public static class Server extends AbstractServer
@@ -210,5 +210,5 @@ public class RPCTest
     Assert.assertTrue("After Greeted!", hello.hasGreeted());
   }
 
-  private static final Logger logger = LoggerFactory.getLogger(RPCTest.class);
+  private static final Logger logger = LogManager.getLogger(RPCTest.class);
 }

@@ -20,8 +20,8 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.celeral.netlet.AbstractClient;
 import com.celeral.netlet.DefaultEventLoop;
@@ -42,7 +42,7 @@ import static java.lang.Thread.sleep;
  */
 public class BenchmarkTcpClient extends AbstractClient
 {
-  private static final Logger logger = LoggerFactory.getLogger(BenchmarkTcpClient.class);
+  private static final Logger logger = LogManager.getLogger(BenchmarkTcpClient.class);
 
   private int count = 0;
   private long start;

@@ -522,5 +522,5 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
     return cb;
   }
 
-  private static final Logger logger = LogManager.getLogger();
+  private static final Logger logger = LogManager.getLogger(CircularBuffer.class);
 }

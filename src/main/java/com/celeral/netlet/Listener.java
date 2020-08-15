@@ -281,7 +281,7 @@ public interface Listener
     {
     }
 
-    private static final Logger logger = LogManager.getLogger();
+    private static final Logger logger = LogManager.getLogger(Listener.class);
   }
 
 }

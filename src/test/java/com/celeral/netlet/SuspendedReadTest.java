@@ -24,8 +24,8 @@ import java.nio.channels.SocketChannel;
 
 import org.junit.Test;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -33,7 +33,7 @@ import static org.junit.Assert.fail;
 
 public class SuspendedReadTest
 {
-  private static final Logger logger = LoggerFactory.getLogger(SuspendedReadTest.class);
+  private static final Logger logger = LogManager.getLogger(SuspendedReadTest.class);
 
   private static class Server extends AbstractServer
   {

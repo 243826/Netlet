@@ -272,5 +272,5 @@ public class ProxyClient
 
   }
 
-  private static final Logger logger = LogManager.getLogger();
+  private static final Logger logger = LogManager.getLogger(ProxyClient.class);
 }

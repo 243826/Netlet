@@ -49,8 +49,8 @@ import com.celeral.utils.Throwables;
 import org.junit.Assert;
 import org.junit.Test;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import org.apache.commons.lang3.SystemUtils;
 
@@ -278,5 +278,5 @@ public class SecureRPCTest
   }
 
 
-  private static final Logger logger = LoggerFactory.getLogger(SecureRPCTest.class);
+  private static final Logger logger = LogManager.getLogger(SecureRPCTest.class);
 }
