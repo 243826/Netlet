@@ -66,7 +66,13 @@ public class RPCTest
     {
       logger.debug("greet = Hello {}!", scope);
       greeted = true;
-      throw Throwables.throwFormatted(RuntimeException.class, "Hello {}!", scope);
+
+      try {
+        throw new Exception("root cause");
+      }
+      catch (Exception ex) {
+        throw Throwables.throwFormatted(ex, RuntimeException.class, "Hello {}!", scope);
+      }
     }
 
     @Override
@@ -197,9 +203,12 @@ public class RPCTest
       hello.greet();
     }
     catch (RuntimeException ex) {
+      logger.debug("remote exception", ex);
       Assert.assertEquals("hello-india".equals(identity.name) ? "Hello India!" : "Hello World!", ex.getMessage());
     }
 
     Assert.assertTrue("After Greeted!", hello.hasGreeted());
   }
+
+  private static final Logger logger = LoggerFactory.getLogger(RPCTest.class);
 }
