@@ -24,8 +24,8 @@ import java.util.AbstractSet;
 import java.util.Iterator;
 import java.util.Set;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * <p>
@@ -203,5 +203,5 @@ public class OptimizedEventLoop extends DefaultEventLoop
     //logger.debug("Terminated {}", this);
   }
 
-  private static final Logger logger = LoggerFactory.getLogger(OptimizedEventLoop.class);
+  private static final Logger logger = LogManager.getLogger(OptimizedEventLoop.class);
 }

@@ -32,10 +32,10 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.celeral.utils.WeakIdentityHashMap;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.celeral.utils.WeakIdentityHashMap;
 
 import com.celeral.netlet.codec.StatefulStreamCodec;
 import com.celeral.netlet.rpc.Client.RPC;
@@ -272,5 +272,5 @@ public class ProxyClient
 
   }
 
-  private static final Logger logger = LoggerFactory.getLogger(ProxyClient.class);
+  private static final Logger logger = LogManager.getLogger();
 }

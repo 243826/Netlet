@@ -19,8 +19,8 @@ import java.net.SocketAddress;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.celeral.netlet.Listener.ServerListener;
 
@@ -55,5 +55,5 @@ public abstract class AbstractServer implements ServerListener
     return boundAddress;
   }
 
-  private static final Logger logger = LoggerFactory.getLogger(AbstractServer.class);
+  private static final Logger logger = LogManager.getLogger();
 }

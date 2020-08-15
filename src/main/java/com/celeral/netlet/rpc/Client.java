@@ -22,8 +22,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import com.esotericsoftware.kryo.serializers.FieldSerializer.Bind;
 import com.esotericsoftware.kryo.serializers.JavaSerializer;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.celeral.netlet.AbstractLengthPrependerClient;
 import com.celeral.netlet.codec.DefaultStatefulStreamCodec;
@@ -316,5 +316,5 @@ public abstract class Client<T> extends AbstractLengthPrependerClient
 
   }
 
-  private static final Logger logger = LoggerFactory.getLogger(Client.class);
+  private static final Logger logger = LogManager.getLogger();
 }

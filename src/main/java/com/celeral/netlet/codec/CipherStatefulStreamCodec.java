@@ -34,13 +34,12 @@ import javax.crypto.spec.OAEPParameterSpec;
 import javax.crypto.spec.PSource;
 import javax.crypto.spec.SecretKeySpec;
 
-import com.celeral.utils.Throwables;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.celeral.netlet.util.Slice;
 import com.celeral.netlet.util.VarInt;
+import com.celeral.utils.Throwables;
 
 /**
  * @author Chetan Narsude <chetan@celeral.com>
@@ -234,5 +233,5 @@ public class CipherStatefulStreamCodec<T> implements StatefulStreamCodec<T>
     }
   }
 
-  private static final Logger logger = LoggerFactory.getLogger(CipherStatefulStreamCodec.class);
+  private static final Logger logger = LogManager.getLogger();
 }

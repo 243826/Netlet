@@ -20,10 +20,10 @@ import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
-import com.celeral.utils.Throwables;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.celeral.utils.Throwables;
 
 import com.celeral.netlet.util.VarInt;
 
@@ -290,5 +290,5 @@ public abstract class AbstractLengthPrependerClient extends AbstractClient imple
     }
   }
 
-  private static final Logger logger = LoggerFactory.getLogger(AbstractLengthPrependerClient.class);
+  private static final Logger logger = LogManager.getLogger();
 }

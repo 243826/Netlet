@@ -20,10 +20,10 @@ import java.lang.reflect.Method;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 
-import com.celeral.utils.Throwables;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.celeral.utils.Throwables;
 
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
 
@@ -159,5 +159,5 @@ public class ExecutingClient extends Client<Client.RPC>
     return null;
   }
 
-  public static final Logger logger = LoggerFactory.getLogger(ExecutingClient.class);
+  private static final Logger logger = LogManager.getLogger();
 }

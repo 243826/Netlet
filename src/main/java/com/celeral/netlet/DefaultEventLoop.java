@@ -29,8 +29,8 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.celeral.netlet.Listener.ClientListener;
 import com.celeral.netlet.Listener.ServerListener;
@@ -712,5 +712,5 @@ public class DefaultEventLoop implements Runnable, EventLoop
     return "{id=" + id + ", " + tasks + '}';
   }
 
-  private static final Logger logger = LoggerFactory.getLogger(DefaultEventLoop.class);
+  private static final Logger logger = LogManager.getLogger(DefaultEventLoop.class);
 }

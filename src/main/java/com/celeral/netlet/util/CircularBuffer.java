@@ -20,8 +20,8 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import static java.lang.Thread.sleep;
 
@@ -522,5 +522,5 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
     return cb;
   }
 
-  private static final Logger logger = LoggerFactory.getLogger(CircularBuffer.class);
+  private static final Logger logger = LogManager.getLogger();
 }

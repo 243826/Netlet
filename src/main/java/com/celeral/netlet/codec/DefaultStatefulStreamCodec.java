@@ -31,8 +31,8 @@ import com.esotericsoftware.kryo.io.Output;
 import com.esotericsoftware.kryo.util.DefaultClassResolver;
 import com.esotericsoftware.kryo.util.MapReferenceResolver;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.celeral.netlet.util.Slice;
 
@@ -241,5 +241,5 @@ public class DefaultStatefulStreamCodec<T> extends Kryo implements StatefulStrea
 
   }
 
-  private static final Logger logger = LoggerFactory.getLogger(DefaultStatefulStreamCodec.class);
+  private static final Logger logger = LogManager.getLogger();
 }
