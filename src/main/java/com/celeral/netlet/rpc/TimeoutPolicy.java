@@ -25,7 +25,7 @@ public interface TimeoutPolicy
 {
   long getTimeoutMillis();
 
-  void handleTimeout(ProxyClient proxy, TimeoutException ex) throws TimeoutException;
+  void handleTimeout(DelegationTransport transport, TimeoutException ex) throws TimeoutException;
 
   class SimpleTimeoutPolicy implements TimeoutPolicy
   {
@@ -43,7 +43,7 @@ public interface TimeoutPolicy
     }
 
     @Override
-    public void handleTimeout(ProxyClient proxy, TimeoutException ex) throws TimeoutException
+    public void handleTimeout(DelegationTransport transport, TimeoutException ex) throws TimeoutException
     {
       throw ex;
     }

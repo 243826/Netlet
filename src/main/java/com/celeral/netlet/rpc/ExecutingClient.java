@@ -17,6 +17,7 @@ package com.celeral.netlet.rpc;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 
@@ -33,22 +34,22 @@ import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
  */
 public class ExecutingClient extends Client<Client.RPC>
 {
-  public final Bean<Object> bean;
+  private final Bean bean;
   private final ConcurrentHashMap<Integer, Method> methodMap;
   private final ConcurrentHashMap<Integer, Integer> notifyMap;
   private final MethodSerializer<Object> methodSerializer;
 
   @SuppressWarnings("unchecked")
-  public ExecutingClient(Bean<?> bean, MethodSerializer<?> methodSerializer, Executor executor)
+  public ExecutingClient(Bean bean, MethodSerializer<?> methodSerializer, Executor executor)
   {
     super(executor);
-    this.bean = (Bean<Object>)bean;
+    this.bean = bean;
     this.methodSerializer = (MethodSerializer<Object>)methodSerializer;
     this.methodMap = new ConcurrentHashMap<>();
     this.notifyMap = new ConcurrentHashMap<>();
   }
 
-  public ExecutingClient(Bean<?> bean, Executor executor)
+  public ExecutingClient(Bean bean, Executor executor)
   {
     this(bean, ExternalizableMethodSerializer.SINGLETON, executor);
   }
@@ -60,7 +61,7 @@ public class ExecutingClient extends Client<Client.RPC>
     Client.RR rr;
     Method method = null;
 
-    final Object object = bean.get(message.identifier, this);
+    final Object object = bean.get(message.identifier);
     Integer methodId = message.methodId;
     try {
       if (message instanceof Client.ExtendedRPC) {
@@ -111,6 +112,8 @@ public class ExecutingClient extends Client<Client.RPC>
       Object retval;
 
       Method objectMethod = object.getClass().getMethod(method.getName(), method.getParameterTypes());
+      objectMethod.setAccessible(true);
+
       ContextAware annotation = objectMethod.getAnnotation(ContextAware.class);
       if (annotation == null) {
         retval = objectMethod.invoke(object, message.args);

@@ -41,6 +41,7 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
+import com.celeral.netlet.rpc.DelegationTransport;
 import com.celeral.transaction.TransactionProcessor;
 import com.celeral.transaction.fileupload.UploadTransaction;
 import com.celeral.utils.NamedThreadFactory;
@@ -99,17 +100,17 @@ public class SecureRPCTest
 
   public static final CipherSerdesProvider serdesProvider = new CipherSerdesProvider();
 
-  private void authenticate(ProxyClient client, ProxyClient.DelegationTransport transport)
+  private void authenticate(ProxyClient client)
   {
     ArrayList<UUID> uuids = new ArrayList<>(clientKeys.keys.keySet());
     final UUID alias = uuids.get(new Random(System.currentTimeMillis()).nextInt(clientKeys.keys.size()));
     final KeyPair clientKeyPair = clientKeys.keys.get(alias);
 
-    Authenticator authenticator = client.create("hello",
-                                                Authenticator.class.getClassLoader(),
+    Authenticator authenticator = client.create(Authenticator.class.getClassLoader(),
                                                 new Class<?>[]{Authenticator.class},
-                                                transport);
-    StatefulStreamCodec<Object> unwrapped = Synchronized.unwrapIfWrapped(transport.client.getSerdes());
+                                                (Class<?>[])null);
+
+    StatefulStreamCodec<Object> unwrapped = Synchronized.unwrapIfWrapped(client.transport.client.getSerdes());
     if (unwrapped instanceof CipherStatefulStreamCodec) {
       CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrapped;
       serdes.initCipher(null,
@@ -140,7 +141,7 @@ public class SecureRPCTest
         serdes.initCipher(CipherStatefulStreamCodec.getCipher(Cipher.ENCRYPT_MODE, key, iv),
                           CipherStatefulStreamCodec.getCipher(Cipher.DECRYPT_MODE, key, iv));
       }
-      transact(client, transport, response, challenge);
+      transact(client, response, challenge);
     }
   }
 
@@ -150,17 +151,17 @@ public class SecureRPCTest
   }
 
   @SuppressWarnings("SleepWhileInLoop")
-  private void transact(ProxyClient client, ProxyClient.DelegationTransport transport, Authenticator.Response response, Authenticator.Challenge challenge)
+  private void transact(ProxyClient client, Authenticator.Response response, Authenticator.Challenge challenge)
   {
     Assert.assertArrayEquals(challenge.getSecret(), response.getSecret());
     /*
      * we are very sure here that our communication is secure at this point!
      */
-    TransactionProcessor transactionProcessor = client.create(response,
+    TransactionProcessor transactionProcessor = client.create(// response,
                                                               TransactionProcessor.class.getClassLoader(),
                                                               new Class<?>[]{TransactionProcessor.class},
-                                                              transport);
-    try (ProxyClient.DelegationTransport store = (ProxyClient.DelegationTransport)Proxy.getInvocationHandler(transactionProcessor)) {
+                                                              (Class<?>[])null);
+    try (DelegationTransport store = (DelegationTransport)Proxy.getInvocationHandler(transactionProcessor)) {
       StatefulStreamCodec<Object> unwrapped = Synchronized.unwrapIfWrapped(store.client.getSerdes());
       if (unwrapped instanceof CipherStatefulStreamCodec) {
         CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrapped;
@@ -254,13 +255,14 @@ public class SecureRPCTest
         try {
           Future<SocketAddress> socketAddressFuture = server.getServerAddressAsync();
           SimpleConnectionAgent connectionAgent = new SimpleConnectionAgent(socketAddressFuture.get(10, TimeUnit.SECONDS), el);
-          ProxyClient client = new ProxyClient(ExternalizableMethodSerializer.SINGLETON,
-                                               clientExecutor);
-          try (ProxyClient.DelegationTransport transport = client.new DelegationTransport(connectionAgent,
-                                                                                          TimeoutPolicy.NO_TIMEOUT_POLICY,
-                                                                                          null)) {
+          try (DelegationTransport transport = new DelegationTransport(connectionAgent,
+                                                                       TimeoutPolicy.NO_TIMEOUT_POLICY,
+                                                                       ExternalizableMethodSerializer.SINGLETON,
+                                                                       null,
+                                                                       clientExecutor)) {
+            ProxyClient client = new ProxyClient(transport);
             transport.client.setSerdes(serdesProvider.newSerdes(transport.client.getSerdes()));
-            authenticate(client, transport);
+            authenticate(client);
           }
         }
         finally {

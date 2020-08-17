@@ -247,7 +247,8 @@ public abstract class Client<T> extends AbstractLengthPrependerClient
     @Override
     public String toString()
     {
-      return "RPC{" + "methodId=" + methodId + ", identifier=" + identifier.toString() + ", args=" + Arrays.toString(args) + '}' + super.toString();
+      return "RPC{" + "methodId=" + methodId + ", identifier=" + (identifier == null? "null" :
+                     identifier.toString()) + ", args=" + Arrays.toString(args) + '}' + super.toString();
     }
 
   }

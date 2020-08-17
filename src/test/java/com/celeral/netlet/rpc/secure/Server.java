@@ -6,6 +6,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.security.KeyPair;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -15,6 +16,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.celeral.netlet.rpc.Bean;
 import com.celeral.transaction.TransactionProcessor;
 import com.celeral.transaction.processor.SerialTransactionProcessor;
 
@@ -22,40 +24,13 @@ import com.celeral.netlet.AbstractServer;
 import com.celeral.netlet.codec.CipherStatefulStreamCodec;
 import com.celeral.netlet.codec.DefaultStatefulStreamCodec;
 import com.celeral.netlet.codec.StatefulStreamCodec;
-import com.celeral.netlet.rpc.Bean;
 import com.celeral.netlet.rpc.ExecutingClient;
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
 
 public class Server extends AbstractServer
 {
   private final Executor executor;
-  AuthenticatorImpl iceBreaker = new AuthenticatorImpl();
 
-  {
-    for (Map.Entry<UUID, KeyPair> entry : SecureRPCTest.clientKeys.keys.entrySet()) {
-      iceBreaker.add(entry.getKey(), entry.getValue().getPublic());
-    }
-  }
-
-  TransactionProcessor stp = new SerialTransactionProcessor();
-
-  private Bean<Object> bean = new Bean<Object>()
-  {
-
-    @Override
-    public Object get(Object identifier, ExecutingClient client)
-    {
-      if ("hello".equals(identifier)) {
-        return iceBreaker;
-      }
-
-      if (identifier instanceof Authenticator.Response) {
-        return stp;
-      }
-
-      return null;
-    }
-  };
 
   public Server(Executor executor)
   {
@@ -65,7 +40,72 @@ public class Server extends AbstractServer
   @Override
   public ClientListener getClientConnection(SocketChannel client, ServerSocketChannel server)
   {
-    return new AuthenticatedExecutingClient();
+    return new AuthenticatedExecutingClient(new Bean() {
+      private final HashMap<Object, Object> bean = new HashMap<>();
+
+    AuthenticatorImpl iceBreaker = new AuthenticatorImpl();
+    {
+      for (Map.Entry<UUID, KeyPair> entry : SecureRPCTest.clientKeys.keys.entrySet()) {
+        iceBreaker.add(entry.getKey(), entry.getValue().getPublic());
+      }
+    }
+
+    TransactionProcessor stp = new SerialTransactionProcessor();
+
+      Object getId(Object object) {
+        return object.getClass().getSimpleName() + "@" + System.identityHashCode(object);
+      }
+
+    @Override public Object create(Class<?>[] desiredIfaces, Class<?>[] unwantedIfaces, Object... args)
+    {
+      for (Class<?> iface : desiredIfaces) {
+        if (iface == Authenticator.class) {
+          Object id = getId(iceBreaker);
+          bean.put(id, iceBreaker);
+          return id;
+        }
+
+        if (iface == TransactionProcessor.class) {
+          Object id = getId(stp);
+          bean.put(id, stp);
+          return id;
+        }
+      }
+
+      return null;
+    }
+
+    @Override public Object create(Class<?> concreteType, Object... args)
+    {
+      if (Authenticator.class.isAssignableFrom(concreteType)) {
+        Object id = getId(iceBreaker);
+        bean.put(id, iceBreaker);
+        return id;
+      }
+
+      if (TransactionProcessor.class.isAssignableFrom(concreteType)) {
+        Object id = getId(stp);
+        bean.put(id, stp);
+        return id;
+      }
+
+      return null;
+    }
+
+      @Override public void destroy(Object id)
+      {
+        bean.remove(id);
+      }
+
+      @Override public Object get(Object id)
+      {
+        if (id == null) {
+          return this;
+        }
+
+        return bean.get(id);
+      }
+    });
   }
 
   @Override
@@ -153,9 +193,9 @@ public class Server extends AbstractServer
   {
     UUID clientId; // is this the right place to pass on the client id?
 
-    AuthenticatedExecutingClient()
+    AuthenticatedExecutingClient(Bean bean)
     {
-      super(Server.this.bean, ExternalizableMethodSerializer.SINGLETON, executor);
+      super(bean, ExternalizableMethodSerializer.SINGLETON, executor);
       DefaultStatefulStreamCodec<Object> codec = (DefaultStatefulStreamCodec<Object>)getSerdes();
 //      try {
 //        codec.register(Class.forName("sun.security.rsa.RSAPublicKeyImpl"), new JavaSerializer());

@@ -44,6 +44,10 @@ import com.celeral.netlet.rpc.methodserializer.GenericStringBasedMethodSerialize
  */
 public class RPCTest
 {
+
+  public static final String INDIA = "India";
+  public static final String WORLD = "World";
+
   public interface Hello
   {
     void greet();
@@ -98,20 +102,45 @@ public class RPCTest
     @Override
     public ClientListener getClientConnection(SocketChannel client, ServerSocketChannel server)
     {
-      ExecutingClient executingClient = new ExecutingClient(new Bean<Identity>()
-      {
-        HelloImpl helloIndia = new HelloImpl("India");
-        HelloImpl helloWorld = new HelloImpl("World");
-
-        @Override
-        public Object get(Identity identifier, ExecutingClient client)
+      ExecutingClient executingClient = new ExecutingClient(new Bean() {
+        Hello india = new HelloImpl(INDIA);
+        Hello world = new HelloImpl(WORLD);
+        @Override public Object create(Class<?>[] desiredIfaces, Class<?>[] unwantedIfaces, Object... args)
         {
-          if ("hello-india".equals(identifier.name)) {
-            return helloIndia;
+          return args[0];
+        }
+
+        @Override public Object create(Class<?> concreteType, Object... args)
+        {
+          return args[0];
+        }
+
+        @Override public void destroy(Object id)
+        {
+          if (INDIA.equals(id)) {
+            india = null;
+            return;
           }
 
-          return helloWorld;
+          if (WORLD.equals(id)) {
+            world = null;
+            return;
+          }
         }
+
+        @Override public Object get(Object id)
+        {
+          if (INDIA.equals(id)) {
+            return india;
+          }
+
+          if (WORLD.equals(id)) {
+            return world;
+          }
+
+          return this;
+        }
+
       }, ExternalizableMethodSerializer.SINGLETON, executor);
       return executingClient;
     }
@@ -173,16 +202,15 @@ public class RPCTest
         }
 
         SimpleConnectionAgent connectionAgent = new SimpleConnectionAgent(si, el);
-        ProxyClient client = new ProxyClient(ExternalizableMethodSerializer.SINGLETON,
-                                             executor);
-        try (ProxyClient.DelegationTransport transport = client.new DelegationTransport(connectionAgent,
-                                                                                        TimeoutPolicy.NO_TIMEOUT_POLICY,
-                                                                                        null)) {
-          Identity identity = new Identity();
-          interact(client, transport, identity);
+        try (DelegationTransport transport = new DelegationTransport(connectionAgent,
+                                                                                             TimeoutPolicy.NO_TIMEOUT_POLICY,
+                                                                                             ExternalizableMethodSerializer.SINGLETON,
+                                                                                             null,
+                                                                                             executor)) {
+          ProxyClient client = new ProxyClient(transport);
 
-          identity.name = "hello-india";
-          interact(client, transport, identity);
+          interact(client, WORLD);
+          interact(client, INDIA);
         }
       }
       finally {
@@ -194,9 +222,9 @@ public class RPCTest
     }
   }
 
-  private void interact(ProxyClient client, ProxyClient.DelegationTransport transport, Identity identity)
+  private void interact(ProxyClient client, String identity)
   {
-    Hello hello = client.create(identity, Hello.class, transport);
+    Hello hello = client.create(Hello.class.getClassLoader(), new Class<?>[]{Hello.class}, (Class<?>[]) null, identity);
     Assert.assertFalse("Before Greeted!", hello.hasGreeted());
 
     try {
@@ -204,7 +232,7 @@ public class RPCTest
     }
     catch (RuntimeException ex) {
       logger.debug("remote exception", ex);
-      Assert.assertEquals("hello-india".equals(identity.name) ? "Hello India!" : "Hello World!", ex.getMessage());
+      Assert.assertEquals(INDIA.equals(identity) ? "Hello India!" : "Hello World!", ex.getMessage());
     }
 
     Assert.assertTrue("After Greeted!", hello.hasGreeted());

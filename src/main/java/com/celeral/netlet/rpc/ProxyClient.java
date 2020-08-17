@@ -15,8 +15,6 @@
  */
 package com.celeral.netlet.rpc;
 
-import java.io.Closeable;
-import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.Collections;
@@ -35,9 +33,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.celeral.utils.WeakIdentityHashMap;
-
-import com.celeral.netlet.codec.StatefulStreamCodec;
 import com.celeral.netlet.rpc.Client.RPC;
 import com.celeral.netlet.rpc.Client.RR;
 
@@ -48,9 +43,8 @@ import com.celeral.netlet.rpc.Client.RR;
  */
 public class ProxyClient
 {
-  private final Executor executors;
-  private final MethodSerializer<Object> methodSerializer;
-  private final WeakIdentityHashMap<Object, Object> identityMap = new WeakIdentityHashMap<>();
+  public final DelegationTransport transport;
+  private final Bean bean;
 
   /**
    * Future for tracking the asynchronous responses to the RPC call.
@@ -133,86 +127,33 @@ public class ProxyClient
   }
 
   @SuppressWarnings("unchecked")
-  public ProxyClient(MethodSerializer<?> methodSerializer, Executor executors)
+  public ProxyClient(DelegationTransport transport)
   {
-    this.methodSerializer = (MethodSerializer<Object>)methodSerializer;
-    this.executors = executors;
+    this.transport = transport;
+    this.bean =
+            (Bean) Proxy.newProxyInstance(Bean.class.getClassLoader(), new Class<?>[]{Bean.class}, transport);
   }
 
-  public <T> T create(Object identifier, ClassLoader loader, Class<?>[] interfaces, DelegationTransport transport)
-  {
+  public <T> T create(ClassLoader loader,
+                      Class<?>[] desiredIfaces,
+                      Class<?>[] unwantedIfaces,
+                      Object... args) {
+     @SuppressWarnings("unchecked")
+     T proxy = (T)Proxy.newProxyInstance(loader, desiredIfaces, transport);
+     Object identifier = bean.create(desiredIfaces, unwantedIfaces, args);
+     transport.register(identifier, proxy);
+     return proxy;
+  }
+
+  public <T> T create(ClassLoader loader,
+                      Class<?>[] desiredIfaces,
+                      Class<?> concreteType,
+                      Object... args) {
     @SuppressWarnings("unchecked")
-    T o = (T)Proxy.newProxyInstance(loader, interfaces, transport);
-    synchronized (identityMap) {
-      identityMap.put(o, identifier);
-    }
-    return o;
-  }
-
-  public <T> T create(Object identifier, Class<T> iface, DelegationTransport transport)
-  {
-    return create(identifier, Thread.currentThread().getContextClassLoader(), new Class<?>[]{iface}, transport);
-  }
-
-  public class DelegationTransport implements InvocationHandler, Closeable
-  {
-    private final ConcurrentLinkedQueue<RPCFuture> futureResponses;
-    public final DelegatingClient client;
-    private final ConnectionAgent agent;
-    private final TimeoutPolicy policy;
-
-    public DelegationTransport(ConnectionAgent agent, TimeoutPolicy policy, StatefulStreamCodec<Object> serdes)
-    {
-      this.agent = agent;
-      this.policy = policy;
-      this.futureResponses = new ConcurrentLinkedQueue<>();
-      this.client = new DelegatingClient(futureResponses, methodSerializer, executors);
-      if (serdes != null) {
-        this.client.setSerdes(serdes);
-      }
-    }
-
-    @Override
-    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable
-    {
-      Object identity = identityMap.get(proxy);
-      do {
-        if (!client.isConnected()) {
-          agent.connect(client);
-        }
-
-        logger.trace("calling {}", method);
-        RPCFuture future = new RPCFuture(client.send(identity, method, args));
-        futureResponses.add(future);
-
-        try {
-          return future.get(policy.getTimeoutMillis(), TimeUnit.MILLISECONDS);
-        }
-        catch (TimeoutException ex) {
-          policy.handleTimeout(ProxyClient.this, ex);
-        }
-        catch (ExecutionException ex) {
-          throw ex.getCause();
-        }
-      }
-      while (true);
-    }
-
-    @Override
-    public void close()
-    {
-      if (client != null) {
-        if (client.isConnected()) {
-          agent.disconnect(client);
-        }
-      }
-    }
-
-    public DelegatingClient getClient()
-    {
-      return client;
-    }
-
+    T proxy = (T) Proxy.newProxyInstance(loader, desiredIfaces, transport);
+    Object identifier = bean.create(concreteType, args);
+    transport.register(identifier, proxy);
+    return proxy;
   }
 
   public static class DelegatingClient extends Client<RR>
@@ -269,8 +210,7 @@ public class ProxyClient
       send(rpc);
       return rpc;
     }
-
   }
 
-  private static final Logger logger = LogManager.getLogger(ProxyClient.class);
+  public static final Logger logger = LogManager.getLogger(ProxyClient.class);
 }
