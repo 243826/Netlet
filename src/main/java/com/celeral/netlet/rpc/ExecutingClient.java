@@ -17,16 +17,14 @@ package com.celeral.netlet.rpc;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.celeral.utils.Throwables;
-
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
+import com.celeral.utils.Throwables;
 
 /**
  *
@@ -34,24 +32,24 @@ import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
  */
 public class ExecutingClient extends Client<Client.RPC>
 {
-  private final Bean bean;
+  private final BeanFactory beanFactory;
   private final ConcurrentHashMap<Integer, Method> methodMap;
   private final ConcurrentHashMap<Integer, Integer> notifyMap;
   private final MethodSerializer<Object> methodSerializer;
 
   @SuppressWarnings("unchecked")
-  public ExecutingClient(Bean bean, MethodSerializer<?> methodSerializer, Executor executor)
+  public ExecutingClient(BeanFactory beanFactory, MethodSerializer<?> methodSerializer, Executor executor)
   {
     super(executor);
-    this.bean = bean;
+    this.beanFactory = beanFactory;
     this.methodSerializer = (MethodSerializer<Object>)methodSerializer;
     this.methodMap = new ConcurrentHashMap<>();
     this.notifyMap = new ConcurrentHashMap<>();
   }
 
-  public ExecutingClient(Bean bean, Executor executor)
+  public ExecutingClient(BeanFactory beanFactory, Executor executor)
   {
-    this(bean, ExternalizableMethodSerializer.SINGLETON, executor);
+    this(beanFactory, ExternalizableMethodSerializer.SINGLETON, executor);
   }
 
   @Override
@@ -61,7 +59,7 @@ public class ExecutingClient extends Client<Client.RPC>
     Client.RR rr;
     Method method = null;
 
-    final Object object = bean.get(message.identifier);
+    final Object object = beanFactory.get(message.identifier);
     Integer methodId = message.methodId;
     try {
       if (message instanceof Client.ExtendedRPC) {

@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import com.celeral.netlet.rpc.Bean;
+import com.celeral.netlet.rpc.BeanFactory;
 import com.celeral.transaction.TransactionProcessor;
 import com.celeral.transaction.processor.SerialTransactionProcessor;
 
@@ -40,7 +40,7 @@ public class Server extends AbstractServer
   @Override
   public ClientListener getClientConnection(SocketChannel client, ServerSocketChannel server)
   {
-    return new AuthenticatedExecutingClient(new Bean() {
+    return new AuthenticatedExecutingClient(new BeanFactory() {
       private final HashMap<Object, Object> bean = new HashMap<>();
 
     AuthenticatorImpl iceBreaker = new AuthenticatorImpl();
@@ -56,7 +56,7 @@ public class Server extends AbstractServer
         return object.getClass().getSimpleName() + "@" + System.identityHashCode(object);
       }
 
-    @Override public Object create(Class<?>[] desiredIfaces, Class<?>[] unwantedIfaces, Object... args)
+    @Override public Object create(Class<?>[] desiredIfaces,  Object... args)
     {
       for (Class<?> iface : desiredIfaces) {
         if (iface == Authenticator.class) {
@@ -193,9 +193,9 @@ public class Server extends AbstractServer
   {
     UUID clientId; // is this the right place to pass on the client id?
 
-    AuthenticatedExecutingClient(Bean bean)
+    AuthenticatedExecutingClient(BeanFactory beanFactory)
     {
-      super(bean, ExternalizableMethodSerializer.SINGLETON, executor);
+      super(beanFactory, ExternalizableMethodSerializer.SINGLETON, executor);
       DefaultStatefulStreamCodec<Object> codec = (DefaultStatefulStreamCodec<Object>)getSerdes();
 //      try {
 //        codec.register(Class.forName("sun.security.rsa.RSAPublicKeyImpl"), new JavaSerializer());

@@ -44,7 +44,7 @@ import com.celeral.netlet.rpc.Client.RR;
 public class ProxyClient
 {
   public final DelegationTransport transport;
-  private final Bean bean;
+  private final BeanFactory beanFactory;
 
   /**
    * Future for tracking the asynchronous responses to the RPC call.
@@ -130,17 +130,16 @@ public class ProxyClient
   public ProxyClient(DelegationTransport transport)
   {
     this.transport = transport;
-    this.bean =
-            (Bean) Proxy.newProxyInstance(Bean.class.getClassLoader(), new Class<?>[]{Bean.class}, transport);
+    this.beanFactory =
+            (BeanFactory) Proxy.newProxyInstance(BeanFactory.class.getClassLoader(), new Class<?>[]{BeanFactory.class}, transport);
   }
 
   public <T> T create(ClassLoader loader,
                       Class<?>[] desiredIfaces,
-                      Class<?>[] unwantedIfaces,
                       Object... args) {
      @SuppressWarnings("unchecked")
      T proxy = (T)Proxy.newProxyInstance(loader, desiredIfaces, transport);
-     Object identifier = bean.create(desiredIfaces, unwantedIfaces, args);
+     Object identifier = beanFactory.create(desiredIfaces, args);
      transport.register(identifier, proxy);
      return proxy;
   }
@@ -151,7 +150,7 @@ public class ProxyClient
                       Object... args) {
     @SuppressWarnings("unchecked")
     T proxy = (T) Proxy.newProxyInstance(loader, desiredIfaces, transport);
-    Object identifier = bean.create(concreteType, args);
+    Object identifier = beanFactory.create(concreteType, args);
     transport.register(identifier, proxy);
     return proxy;
   }
@@ -164,11 +163,16 @@ public class ProxyClient
     private final ConcurrentLinkedQueue<RPCFuture> futureResponses;
     private final MethodSerializer<Object> methodSerializer;
 
-    DelegatingClient(ConcurrentLinkedQueue<RPCFuture> futureResponses, MethodSerializer<Object> methodSerializer, Executor executors)
+    DelegatingClient(ConcurrentLinkedQueue<RPCFuture> futureResponses, MethodSerializer<?> methodSerializer,
+                     Executor executors)
     {
       super(executors);
       this.futureResponses = futureResponses;
-      this.methodSerializer = methodSerializer;
+
+      @SuppressWarnings("unchecked")
+      MethodSerializer<Object> ms = (MethodSerializer<Object>)methodSerializer;
+      this.methodSerializer = ms;
+
       methodMap = Collections.synchronizedMap(new WeakHashMap<Method, Integer>());
       identityMap = Collections.synchronizedMap(new WeakHashMap<Object, Integer>());
     }

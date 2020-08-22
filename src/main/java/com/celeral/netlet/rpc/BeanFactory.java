@@ -1,8 +1,8 @@
 package com.celeral.netlet.rpc;
 
-public interface Bean
+public interface BeanFactory
 {
-  Object create(Class<?>[] desiredIfaces, Class<?>[] unwantedIfaces, Object... args);
+  Object create(Class<?>[] desiredIfaces, Object... args);
 
   Object create(Class<?> concreteType, Object... args);
 

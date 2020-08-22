@@ -26,7 +26,7 @@ public class DelegationTransport implements InvocationHandler, Closeable
 
   public DelegationTransport(ConnectionAgent agent,
                              TimeoutPolicy policy,
-                             MethodSerializer methodSerializer,
+                             MethodSerializer<?> methodSerializer,
                              StatefulStreamCodec<Object> serdes,
                              Executor executor)
   {

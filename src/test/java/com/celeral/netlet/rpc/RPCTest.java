@@ -102,10 +102,10 @@ public class RPCTest
     @Override
     public ClientListener getClientConnection(SocketChannel client, ServerSocketChannel server)
     {
-      ExecutingClient executingClient = new ExecutingClient(new Bean() {
+      ExecutingClient executingClient = new ExecutingClient(new BeanFactory() {
         Hello india = new HelloImpl(INDIA);
         Hello world = new HelloImpl(WORLD);
-        @Override public Object create(Class<?>[] desiredIfaces, Class<?>[] unwantedIfaces, Object... args)
+        @Override public Object create(Class<?>[] desiredIfaces, Object... args)
         {
           return args[0];
         }
@@ -156,14 +156,11 @@ public class RPCTest
   }
 
   @Test
-  public void testRPCMultiThreaded() throws IOException, InterruptedException
+  public void testRPCMultiThreaded() throws Exception
   {
     ExecutorService executor = Executors.newFixedThreadPool(2);
-    try {
+    try (AutoCloseable ignore = () -> executor.shutdown()) {
       testRPC(executor);
-    }
-    finally {
-      executor.shutdown();
     }
   }
 
@@ -224,7 +221,7 @@ public class RPCTest
 
   private void interact(ProxyClient client, String identity)
   {
-    Hello hello = client.create(Hello.class.getClassLoader(), new Class<?>[]{Hello.class}, (Class<?>[]) null, identity);
+    Hello hello = client.create(Hello.class.getClassLoader(), new Class<?>[]{Hello.class}, identity);
     Assert.assertFalse("Before Greeted!", hello.hasGreeted());
 
     try {
