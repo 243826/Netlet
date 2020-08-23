@@ -157,10 +157,8 @@ public class SecureRPCTest
     /*
      * we are very sure here that our communication is secure at this point!
      */
-    TransactionProcessor transactionProcessor = client.create(// response,
-                                                              TransactionProcessor.class.getClassLoader(),
-                                                              new Class<?>[]{TransactionProcessor.class},
-                                                              (Class<?>[])null);
+    TransactionProcessor transactionProcessor = client.create(TransactionProcessor.class.getClassLoader(),
+                                                              new Class<?>[]{TransactionProcessor.class});
     try (DelegationTransport store = (DelegationTransport)Proxy.getInvocationHandler(transactionProcessor)) {
       StatefulStreamCodec<Object> unwrapped = Synchronized.unwrapIfWrapped(store.client.getSerdes());
       if (unwrapped instanceof CipherStatefulStreamCodec) {

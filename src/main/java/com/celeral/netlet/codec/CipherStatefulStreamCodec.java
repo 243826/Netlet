@@ -157,12 +157,12 @@ public class CipherStatefulStreamCodec<T> implements StatefulStreamCodec<T>
   {
     try {
       DataStatePair pair = codec.toDataStatePair(o);
-      //CipherStatefulStreamCodec.logPair("clr", pair);
+//      CipherStatefulStreamCodec.logPair("clr", pair);
       pair.data = CipherStatefulStreamCodec.doFinal(Cipher.ENCRYPT_MODE, encryption, pair.data);
       if (pair.state != null) {
         pair.state = CipherStatefulStreamCodec.doFinal(Cipher.ENCRYPT_MODE, encryption, pair.state);
       }
-      //CipherStatefulStreamCodec.logPair("enc", pair);
+//      CipherStatefulStreamCodec.logPair("enc", pair);
       return pair;
     }
     catch (IllegalBlockSizeException | BadPaddingException | ShortBufferException ex) {
@@ -182,19 +182,19 @@ public class CipherStatefulStreamCodec<T> implements StatefulStreamCodec<T>
   @Override
   public Object fromDataStatePair(DataStatePair pair)
   {
-    //CipherStatefulStreamCodec.logPair("enc", pair);
+//    CipherStatefulStreamCodec.logPair("enc", pair);
 
     try {
       pair.data = CipherStatefulStreamCodec.doFinal(Cipher.DECRYPT_MODE, decryption, pair.data);
       if (pair.state != null) {
         pair.state = CipherStatefulStreamCodec.doFinal(Cipher.DECRYPT_MODE, decryption, pair.state);
       }
-      //CipherStatefulStreamCodec.logPair("clr", pair);
+//      CipherStatefulStreamCodec.logPair("clr", pair);
 
       return codec.fromDataStatePair(pair);
     }
     catch (IllegalBlockSizeException | BadPaddingException | ShortBufferException ex) {
-      throw new RuntimeException(ex);
+      throw Throwables.throwSneaky(ex);
     }
   }
 

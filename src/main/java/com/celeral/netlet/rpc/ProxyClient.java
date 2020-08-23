@@ -155,6 +155,7 @@ public class ProxyClient
     return proxy;
   }
 
+
   public static class DelegatingClient extends Client<RR>
   {
     Map<Method, Integer> methodMap;

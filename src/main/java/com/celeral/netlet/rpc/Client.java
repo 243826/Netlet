@@ -43,18 +43,9 @@ public abstract class Client<T> extends AbstractLengthPrependerClient
   private StatefulStreamCodec<Object> serdes;
   private transient Executor executors;
 
-  private static class DirectExecutor implements Executor
-  {
-    @Override
-    public void execute(Runnable command)
-    {
-      command.run();
-    }
-  }
-
   private Client()
   {
-    this(new DirectExecutor());
+    this(Runnable::run);
   }
 
   public Client(Executor executors)
@@ -250,7 +241,6 @@ public abstract class Client<T> extends AbstractLengthPrependerClient
       return "RPC{" + "methodId=" + methodId + ", identifier=" + (identifier == null? "null" :
                      identifier.toString()) + ", args=" + Arrays.toString(args) + '}' + super.toString();
     }
-
   }
 
   /**
@@ -314,7 +304,6 @@ public abstract class Client<T> extends AbstractLengthPrependerClient
     {
       return "RR{" + "exception=" + exception + ", response=" + response + '}' + super.toString();
     }
-
   }
 
   private static final Logger logger = LogManager.getLogger(Client.class);

@@ -200,10 +200,10 @@ public class RPCTest
 
         SimpleConnectionAgent connectionAgent = new SimpleConnectionAgent(si, el);
         try (DelegationTransport transport = new DelegationTransport(connectionAgent,
-                                                                                             TimeoutPolicy.NO_TIMEOUT_POLICY,
-                                                                                             ExternalizableMethodSerializer.SINGLETON,
-                                                                                             null,
-                                                                                             executor)) {
+                                                                     TimeoutPolicy.NO_TIMEOUT_POLICY,
+                                                                     ExternalizableMethodSerializer.SINGLETON,
+                                                                     null,
+                                                                     executor)) {
           ProxyClient client = new ProxyClient(transport);
 
           interact(client, WORLD);

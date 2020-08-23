@@ -41,7 +41,7 @@ public class Server extends AbstractServer
   public ClientListener getClientConnection(SocketChannel client, ServerSocketChannel server)
   {
     return new AuthenticatedExecutingClient(new BeanFactory() {
-      private final HashMap<Object, Object> bean = new HashMap<>();
+      private final HashMap<Object, Object> beanMap = new HashMap<>();
 
     AuthenticatorImpl iceBreaker = new AuthenticatorImpl();
     {
@@ -61,13 +61,13 @@ public class Server extends AbstractServer
       for (Class<?> iface : desiredIfaces) {
         if (iface == Authenticator.class) {
           Object id = getId(iceBreaker);
-          bean.put(id, iceBreaker);
+          beanMap.put(id, iceBreaker);
           return id;
         }
 
         if (iface == TransactionProcessor.class) {
           Object id = getId(stp);
-          bean.put(id, stp);
+          beanMap.put(id, stp);
           return id;
         }
       }
@@ -79,13 +79,13 @@ public class Server extends AbstractServer
     {
       if (Authenticator.class.isAssignableFrom(concreteType)) {
         Object id = getId(iceBreaker);
-        bean.put(id, iceBreaker);
+        beanMap.put(id, iceBreaker);
         return id;
       }
 
       if (TransactionProcessor.class.isAssignableFrom(concreteType)) {
         Object id = getId(stp);
-        bean.put(id, stp);
+        beanMap.put(id, stp);
         return id;
       }
 
@@ -94,7 +94,7 @@ public class Server extends AbstractServer
 
       @Override public void destroy(Object id)
       {
-        bean.remove(id);
+        beanMap.remove(id);
       }
 
       @Override public Object get(Object id)
@@ -103,7 +103,7 @@ public class Server extends AbstractServer
           return this;
         }
 
-        return bean.get(id);
+        return beanMap.get(id);
       }
     });
   }
