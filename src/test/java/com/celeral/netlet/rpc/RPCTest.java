@@ -204,7 +204,7 @@ public class RPCTest
                                                                      ExternalizableMethodSerializer.SINGLETON,
                                                                      null,
                                                                      executor)) {
-          ProxyClient client = new ProxyClient(transport);
+          ProxyProvider client = new ProxyProvider(transport);
 
           interact(client, WORLD);
           interact(client, INDIA);
@@ -219,7 +219,7 @@ public class RPCTest
     }
   }
 
-  private void interact(ProxyClient client, String identity)
+  private void interact(ProxyProvider client, String identity)
   {
     Hello hello = client.create(Hello.class.getClassLoader(), new Class<?>[]{Hello.class}, identity);
     Assert.assertFalse("Before Greeted!", hello.hasGreeted());

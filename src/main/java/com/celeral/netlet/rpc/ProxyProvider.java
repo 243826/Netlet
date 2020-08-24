@@ -41,7 +41,7 @@ import com.celeral.netlet.rpc.Client.RR;
  *
  * @author Chetan Narsude {@literal <chetan@apache.org>}
  */
-public class ProxyClient
+public class ProxyProvider
 {
   public final DelegationTransport transport;
   private final BeanFactory beanFactory;
@@ -127,7 +127,7 @@ public class ProxyClient
   }
 
   @SuppressWarnings("unchecked")
-  public ProxyClient(DelegationTransport transport)
+  public ProxyProvider(DelegationTransport transport)
   {
     this.transport = transport;
     this.beanFactory =
@@ -217,5 +217,5 @@ public class ProxyClient
     }
   }
 
-  public static final Logger logger = LogManager.getLogger(ProxyClient.class);
+  public static final Logger logger = LogManager.getLogger(ProxyProvider.class);
 }

@@ -17,8 +17,8 @@ import com.celeral.utils.WeakIdentityHashMap;
 
 public class DelegationTransport implements InvocationHandler, Closeable
 {
-  private final ConcurrentLinkedQueue<ProxyClient.RPCFuture> futureResponses;
-  public final ProxyClient.DelegatingClient client;
+  private final ConcurrentLinkedQueue<ProxyProvider.RPCFuture> futureResponses;
+  public final ProxyProvider.DelegatingClient client;
   private final ConnectionAgent agent;
   private final TimeoutPolicy policy;
 
@@ -35,7 +35,7 @@ public class DelegationTransport implements InvocationHandler, Closeable
     this.agent = agent;
     this.policy = policy;
     this.futureResponses = new ConcurrentLinkedQueue<>();
-    this.client = new ProxyClient.DelegatingClient(futureResponses, methodSerializer, executor);
+    this.client = new ProxyProvider.DelegatingClient(futureResponses, methodSerializer, executor);
     if (serdes != null) {
       this.client.setSerdes(serdes);
     }
@@ -57,7 +57,7 @@ public class DelegationTransport implements InvocationHandler, Closeable
       }
 
       logger.trace("calling {}", method);
-      ProxyClient.RPCFuture future = new ProxyClient.RPCFuture(client.send(identity, method, args));
+      ProxyProvider.RPCFuture future = new ProxyProvider.RPCFuture(client.send(identity, method, args));
       futureResponses.add(future);
 
       try {
@@ -83,7 +83,7 @@ public class DelegationTransport implements InvocationHandler, Closeable
     }
   }
 
-  public ProxyClient.DelegatingClient getClient()
+  public ProxyProvider.DelegatingClient getClient()
   {
     return client;
   }

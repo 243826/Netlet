@@ -61,7 +61,7 @@ import com.celeral.netlet.codec.DefaultStatefulStreamCodec;
 import com.celeral.netlet.codec.StatefulStreamCodec;
 import com.celeral.netlet.codec.StatefulStreamCodec.Synchronized;
 import com.celeral.netlet.rpc.ConnectionAgent.SimpleConnectionAgent;
-import com.celeral.netlet.rpc.ProxyClient;
+import com.celeral.netlet.rpc.ProxyProvider;
 import com.celeral.netlet.rpc.SerdesProvider;
 import com.celeral.netlet.rpc.TimeoutPolicy;
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
@@ -100,7 +100,7 @@ public class SecureRPCTest
 
   public static final CipherSerdesProvider serdesProvider = new CipherSerdesProvider();
 
-  private void authenticate(ProxyClient client)
+  private void authenticate(ProxyProvider client)
   {
     ArrayList<UUID> uuids = new ArrayList<>(clientKeys.keys.keySet());
     final UUID alias = uuids.get(new Random(System.currentTimeMillis()).nextInt(clientKeys.keys.size()));
@@ -151,7 +151,7 @@ public class SecureRPCTest
   }
 
   @SuppressWarnings("SleepWhileInLoop")
-  private void transact(ProxyClient client, Authenticator.Response response, Authenticator.Challenge challenge)
+  private void transact(ProxyProvider client, Authenticator.Response response, Authenticator.Challenge challenge)
   {
     Assert.assertArrayEquals(challenge.getSecret(), response.getSecret());
     /*
@@ -187,7 +187,7 @@ public class SecureRPCTest
         }
       }
       catch (IOException ex) {
-        throw new RuntimeException(ex);
+        throw Throwables.throwSneaky(ex);
       }
 
       try {
@@ -199,7 +199,7 @@ public class SecureRPCTest
                                  Files.readAllBytes(Paths.get(source.toString())), Files.readAllBytes(Paths.get(destination.toString())));
       }
       catch (IOException | InterruptedException ex) {
-        Throwables.wrapIfChecked(ex);
+        throw Throwables.throwSneaky(ex);
       }
     }
   }
@@ -258,7 +258,7 @@ public class SecureRPCTest
                                                                        ExternalizableMethodSerializer.SINGLETON,
                                                                        null,
                                                                        clientExecutor)) {
-            ProxyClient client = new ProxyClient(transport);
+            ProxyProvider client = new ProxyProvider(transport);
             transport.client.setSerdes(serdesProvider.newSerdes(transport.client.getSerdes()));
             authenticate(client);
           }
