@@ -18,11 +18,14 @@ package com.celeral.netlet;
 import java.net.SocketAddress;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.celeral.netlet.Listener.ServerListener;
+import com.celeral.utils.Throwables;
 
 /**
  * <p>Abstract AbstractServer class.</p> *
@@ -31,28 +34,50 @@ import com.celeral.netlet.Listener.ServerListener;
  */
 public abstract class AbstractServer implements ServerListener
 {
-  SocketAddress boundAddress;
+  CompletableFuture<SocketAddress> boundSocketAddressFuture = new CompletableFuture<>();
 
   @Override
   public void registered(SelectionKey key)
   {
-      boundAddress = ((ServerSocketChannel)key.channel()).socket().getLocalSocketAddress();
+    boundSocketAddressFuture.complete(((ServerSocketChannel)key.channel()).socket().getLocalSocketAddress());
   }
 
   @Override
   public void unregistered(SelectionKey key)
   {
+    boundSocketAddressFuture = null;
   }
 
   @Override
   public void handleException(Exception cce, EventLoop el)
   {
-    logger.debug("", cce);
+    if (boundSocketAddressFuture == null || boundSocketAddressFuture.isDone()) {
+      logger.debug("", cce);
+    }
+    else {
+      boundSocketAddressFuture.completeExceptionally(cce);
+    }
   }
 
+  @Deprecated
+  /**
+   * @deprecated use {@link #getBoundAddress()} instead
+   */
   public SocketAddress getServerAddress()
   {
-    return boundAddress;
+    try {
+      return boundSocketAddressFuture.get();
+    }
+    catch (InterruptedException e) {
+      throw Throwables.throwSneaky(e);
+    }
+    catch (ExecutionException e) {
+      throw Throwables.throwSneaky(e.getCause());
+    }
+  }
+
+  public CompletableFuture<SocketAddress> getBoundAddress() {
+    return boundSocketAddressFuture;
   }
 
   private static final Logger logger = LogManager.getLogger(AbstractServer.class);

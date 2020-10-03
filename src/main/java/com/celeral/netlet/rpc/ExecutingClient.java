@@ -114,6 +114,7 @@ public class ExecutingClient extends Client<Client.RPC>
 
       ContextAware annotation = objectMethod.getAnnotation(ContextAware.class);
       if (annotation == null) {
+        /* since annotation was not found, we just find the method and invoke it. */
         retval = objectMethod.invoke(object, message.args);
       }
       else {

@@ -17,7 +17,6 @@ package com.celeral.netlet.rpc.secure;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.file.Files;
@@ -41,12 +40,6 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-import com.celeral.netlet.rpc.DelegationTransport;
-import com.celeral.transaction.TransactionProcessor;
-import com.celeral.transaction.fileupload.UploadTransaction;
-import com.celeral.utils.NamedThreadFactory;
-import com.celeral.utils.Throwables;
-
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -61,10 +54,15 @@ import com.celeral.netlet.codec.DefaultStatefulStreamCodec;
 import com.celeral.netlet.codec.StatefulStreamCodec;
 import com.celeral.netlet.codec.StatefulStreamCodec.Synchronized;
 import com.celeral.netlet.rpc.ConnectionAgent.SimpleConnectionAgent;
+import com.celeral.netlet.rpc.DelegationTransport;
 import com.celeral.netlet.rpc.ProxyProvider;
 import com.celeral.netlet.rpc.SerdesProvider;
 import com.celeral.netlet.rpc.TimeoutPolicy;
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
+import com.celeral.transaction.TransactionProcessor;
+import com.celeral.transaction.fileupload.UploadTransaction;
+import com.celeral.utils.NamedThreadFactory;
+import com.celeral.utils.Throwables;
 
 import static java.lang.Thread.sleep;
 
@@ -73,8 +71,6 @@ import static java.lang.Thread.sleep;
  */
 public class SecureRPCTest
 {
-  public static final String CHARSET_UTF_8 = "UTF-8";
-
   static class CipherSerdesProvider implements SerdesProvider
   {
     @Override
@@ -132,7 +128,6 @@ public class SecureRPCTest
 
       Authenticator.Response response = authenticator.establishSession(challenge);
       Assert.assertArrayEquals(challenge.getSecret(), response.getSecret());
-      logger.debug("{} == {}", challenge.getSecret(), response.getSecret());
 
       if (unwrapped instanceof CipherStatefulStreamCodec) {
         CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrapped;
@@ -141,7 +136,8 @@ public class SecureRPCTest
         serdes.initCipher(CipherStatefulStreamCodec.getCipher(Cipher.ENCRYPT_MODE, key, iv),
                           CipherStatefulStreamCodec.getCipher(Cipher.DECRYPT_MODE, key, iv));
       }
-      transact(client, response, challenge);
+
+      transact(client);
     }
   }
 
@@ -151,24 +147,10 @@ public class SecureRPCTest
   }
 
   @SuppressWarnings("SleepWhileInLoop")
-  private void transact(ProxyProvider client, Authenticator.Response response, Authenticator.Challenge challenge)
+  private void transact(ProxyProvider client)
   {
-    Assert.assertArrayEquals(challenge.getSecret(), response.getSecret());
-    /*
-     * we are very sure here that our communication is secure at this point!
-     */
     TransactionProcessor transactionProcessor = client.create(TransactionProcessor.class.getClassLoader(),
                                                               new Class<?>[]{TransactionProcessor.class});
-    try (DelegationTransport store = (DelegationTransport)Proxy.getInvocationHandler(transactionProcessor)) {
-      StatefulStreamCodec<Object> unwrapped = Synchronized.unwrapIfWrapped(store.client.getSerdes());
-      if (unwrapped instanceof CipherStatefulStreamCodec) {
-        CipherStatefulStreamCodec<Object> serdes = (CipherStatefulStreamCodec<Object>)unwrapped;
-        SecretKey key = new SecretKeySpec(response.getSecret(), "AES");
-        IvParameterSpec iv = new IvParameterSpec(challenge.getInitializationVector());
-        serdes.initCipher(CipherStatefulStreamCodec.getCipher(Cipher.ENCRYPT_MODE, key, iv),
-                          CipherStatefulStreamCodec.getCipher(Cipher.DECRYPT_MODE, key, iv));
-      }
-
       String filename = "SecureRPCTest.class";
       File source = new File("target/test-classes/com/celeral/netlet/rpc/secure", filename);
       File destination = new File(SystemUtils.getJavaIoTmpDir(), filename);
@@ -179,10 +161,10 @@ public class SecureRPCTest
         }
 
         UploadTransaction transaction = new UploadTransaction(source.toString(), 1024);
-        transactionProcessor.process(transaction);
+        transactionProcessor.init(transaction);
         try (UploadTransaction.UploadPayloadIterator uploadIterator = transaction.getPayloadIterator()) {
           while (uploadIterator.hasNext()) {
-            transactionProcessor.process(uploadIterator.next());
+            transactionProcessor.process(transaction.getId(), uploadIterator.next());
           }
         }
       }
@@ -201,7 +183,6 @@ public class SecureRPCTest
       catch (IOException | InterruptedException ex) {
         throw Throwables.throwSneaky(ex);
       }
-    }
   }
 
   public static class ClientKeys
@@ -251,7 +232,7 @@ public class SecureRPCTest
         el.start(new InetSocketAddress(0), server);
 
         try {
-          Future<SocketAddress> socketAddressFuture = server.getServerAddressAsync();
+          Future<SocketAddress> socketAddressFuture = server.getBoundAddress();
           SimpleConnectionAgent connectionAgent = new SimpleConnectionAgent(socketAddressFuture.get(10, TimeUnit.SECONDS), el);
           try (DelegationTransport transport = new DelegationTransport(connectionAgent,
                                                                        TimeoutPolicy.NO_TIMEOUT_POLICY,
