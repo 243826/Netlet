@@ -32,7 +32,7 @@ import com.celeral.utils.Throwables;
  */
 public class ExecutingClient extends Client<Client.RPC>
 {
-  private final BeanFactory beanFactory;
+  protected final BeanFactory beanFactory;
   private final ConcurrentHashMap<Integer, Method> methodMap;
   private final ConcurrentHashMap<Integer, Integer> notifyMap;
   private final MethodSerializer<Object> methodSerializer;

@@ -1,14 +1,24 @@
 package com.celeral.netlet.rpc.secure;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.KeyPair;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import org.apache.commons.lang3.SystemUtils;
 
@@ -19,8 +29,10 @@ import com.celeral.netlet.codec.StatefulStreamCodec;
 import com.celeral.netlet.rpc.BeanFactory;
 import com.celeral.netlet.rpc.ExecutingClient;
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
-import com.celeral.transaction.ExecutionContext;
+import com.celeral.transaction.Transaction;
 import com.celeral.transaction.TransactionProcessor;
+import com.celeral.transaction.fileupload.UploadPayload;
+import com.celeral.transaction.fileupload.UploadTransaction;
 import com.celeral.transaction.processor.AbstractSerialTransactionProcessor;
 
 public class Server extends AbstractServer
@@ -30,6 +42,34 @@ public class Server extends AbstractServer
   public Server(Executor executor)
   {
     this.executor = executor;
+  }
+
+  static class UploadTransactionDocument implements UploadTransaction.Document {
+
+    private final File file;
+
+    UploadTransactionDocument(File file) {
+      this.file = file;
+    }
+
+    @Override public OutputStream openOutputStream() throws IOException
+    {
+      return new FileOutputStream(file);
+    }
+
+    @Override public boolean delete() throws IOException
+    {
+      return file.delete();
+    }
+
+    @Override public boolean renameTo(String s) throws IOException
+    {
+      File file = new File(SystemUtils.getJavaIoTmpDir(), s);
+      file.getParentFile().mkdirs();
+      return this.file.renameTo(file);
+    }
+
+    public static final Logger logger = LogManager.getLogger(UploadTransactionDocument.class);
   }
 
   @Override
@@ -46,22 +86,14 @@ public class Server extends AbstractServer
     }
 
     TransactionProcessor stp = new AbstractSerialTransactionProcessor() {
-      @Override public ExecutionContext getExecutionContext()
+      @Override public Transaction<?, ?> newTransaction()
       {
-        {
-          return new ExecutionContext()
+        return new UploadTransaction<UploadTransactionDocument>() {
+          @Override public UploadTransactionDocument createTemporaryDocument(String s) throws IOException
           {
-            @Override public UUID getTenantId()
-            {
-              return UUID.randomUUID();
-            }
-
-            @Override public File getStorageRoot()
-            {
-              return SystemUtils.getJavaIoTmpDir();
-            }
-          };
-        }
+            return new UploadTransactionDocument(File.createTempFile("abc", null));
+          }
+        };
       }
     };
 

@@ -87,11 +87,15 @@ public abstract class Client<T> extends AbstractLengthPrependerClient
 
   private synchronized void writeObject(DataStatePair pair)
   {
-    if (pair.state != null) {
-      write(pair.state.buffer, pair.state.offset, pair.state.length);
-    }
+    try {
+      if (pair.state != null) {
+        write(pair.state.buffer, pair.state.offset, pair.state.length);
+      }
 
-    write(pair.data.buffer, pair.data.offset, pair.data.length);
+      write(pair.data.buffer, pair.data.offset, pair.data.length);
+    } catch (Exception ex) {
+      handleException(ex, null);
+    }
   }
 
   public void execute(Runnable runnable)

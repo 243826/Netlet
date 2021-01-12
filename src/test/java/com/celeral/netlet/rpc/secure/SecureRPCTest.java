@@ -39,6 +39,7 @@ import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import javax.validation.constraints.NotNull;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -60,7 +61,8 @@ import com.celeral.netlet.rpc.SerdesProvider;
 import com.celeral.netlet.rpc.TimeoutPolicy;
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
 import com.celeral.transaction.TransactionProcessor;
-import com.celeral.transaction.fileupload.UploadTransaction;
+import com.celeral.transaction.fileupload.UploadPayloadIterator;
+import com.celeral.transaction.fileupload.UploadTransactionHeader;
 import com.celeral.utils.NamedThreadFactory;
 import com.celeral.utils.Throwables;
 
@@ -146,6 +148,40 @@ public class SecureRPCTest
     return true;
   }
 
+  private static class UploadTransactionHeaderImpl implements UploadTransactionHeader {
+
+    private final String path;
+    private final long size;
+    private final long mtime;
+
+    private UploadTransactionHeaderImpl() {
+      path =  null;
+      size = 0;
+      mtime = 0;
+    }
+
+    public UploadTransactionHeaderImpl(@NotNull String path) {
+      this.path = path;
+      File source = new File(path);
+      size = source.length();
+      mtime = source.lastModified();
+    }
+
+    @Override public String getPath()
+    {
+      return path;
+    }
+
+    @Override public long getSize()
+    {
+      return size;
+    }
+
+    @Override public long getModifiedTime()
+    {
+      return mtime;
+    }
+  }
   @SuppressWarnings("SleepWhileInLoop")
   private void transact(ProxyProvider client)
   {
@@ -153,18 +189,19 @@ public class SecureRPCTest
                                                               new Class<?>[]{TransactionProcessor.class});
       String filename = "SecureRPCTest.class";
       File source = new File("target/test-classes/com/celeral/netlet/rpc/secure", filename);
-      File destination = new File(SystemUtils.getJavaIoTmpDir(), filename);
+      File destination = new File(SystemUtils.getJavaIoTmpDir(), source.getPath());
 
       try {
         if (destination.exists()) {
           destination.delete();
         }
 
-        UploadTransaction transaction = new UploadTransaction(source.toString(), 1024);
-        transactionProcessor.init(transaction);
-        try (UploadTransaction.UploadPayloadIterator uploadIterator = transaction.getPayloadIterator()) {
-          while (uploadIterator.hasNext()) {
-            transactionProcessor.process(transaction.getId(), uploadIterator.next());
+
+        UploadTransactionHeaderImpl header = new UploadTransactionHeaderImpl(source.getPath());
+        final TransactionProcessor.InitializationResult init = transactionProcessor.init(header);
+        try (UploadPayloadIterator iterator = new UploadPayloadIterator(header, 1024)) {
+          while (iterator.hasNext()) {
+            transactionProcessor.process(init.getTransactionId(), iterator.next());
           }
         }
       }
