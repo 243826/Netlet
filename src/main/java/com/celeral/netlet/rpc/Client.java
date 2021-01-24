@@ -217,13 +217,19 @@ public abstract class Client<T> extends AbstractLengthPrependerClient
    */
   public static class RPC extends Ack
   {
-    int methodId;
-    Object identifier;
-    Object[] args;
+    final int methodId;
+    final Object identifier;
+    final Object[] args;
+
+    /**
+     * This extra payload allows us to reflect the garbage collection on the server side.
+     */
+    Object[] deletedIdentifiers;
 
     protected RPC()
     {
       /* for serialization */
+      this(0, 0, null, null);
     }
 
     public RPC(int methodId, Object identifier, Object[] args)
@@ -237,6 +243,10 @@ public abstract class Client<T> extends AbstractLengthPrependerClient
       this.methodId = methodId;
       this.identifier = identifier;
       this.args = args;
+    }
+
+    public void setDeletedIdentifiers(Object[] identifiers) {
+      this.deletedIdentifiers = identifiers;
     }
 
     @Override
@@ -282,6 +292,7 @@ public abstract class Client<T> extends AbstractLengthPrependerClient
   public static class RR extends Ack
   {
     Object response;
+    Object[] removedIdentifiers;
 
     @Bind(JavaSerializer.class)
     Throwable exception;

@@ -9,4 +9,6 @@ public interface BeanFactory
   void destroy(Object id);
 
   Object get(Object id);
+
+  boolean contains(Object id);
 }

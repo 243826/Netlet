@@ -31,7 +31,6 @@ import com.celeral.netlet.rpc.ExecutingClient;
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
 import com.celeral.transaction.Transaction;
 import com.celeral.transaction.TransactionProcessor;
-import com.celeral.transaction.fileupload.UploadPayload;
 import com.celeral.transaction.fileupload.UploadTransaction;
 import com.celeral.transaction.processor.AbstractSerialTransactionProcessor;
 
@@ -139,7 +138,8 @@ public class Server extends AbstractServer
 
       @Override public void destroy(Object id)
       {
-        beanMap.remove(id);
+        final Object remove = beanMap.remove(id);
+        logger.trace("deleting the object {} with id {}", remove, id);
       }
 
       @Override public Object get(Object id)
@@ -149,6 +149,11 @@ public class Server extends AbstractServer
         }
 
         return beanMap.get(id);
+      }
+
+      @Override public boolean contains(Object id)
+      {
+        return beanMap.containsKey(id);
       }
     });
   }
@@ -263,4 +268,6 @@ public class Server extends AbstractServer
     }
 
   }
+
+  public static final Logger logger = LogManager.getLogger(Server.class);
 }

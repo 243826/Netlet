@@ -141,6 +141,11 @@ public class RPCTest
           return this;
         }
 
+        @Override public boolean contains(Object id)
+        {
+          return WORLD.equals(id) || INDIA.equals(id);
+        }
+
       }, ExternalizableMethodSerializer.SINGLETON, executor);
       return executingClient;
     }

@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.celeral.netlet.EventLoop;
 import com.celeral.netlet.rpc.Client.RPC;
 import com.celeral.netlet.rpc.Client.RR;
 
@@ -198,7 +199,7 @@ public class ProxyProvider
 
     static final AtomicInteger methodIdGenerator = new AtomicInteger();
 
-    public RPC send(Object identifier, Method method, Object[] args)
+    public RPC send(Object identifier, Method method, Object[] args, Object[] identifiers)
     {
       RPC rpc;
 
@@ -212,8 +213,40 @@ public class ProxyProvider
         rpc = new RPC(i, identifier, args);
       }
 
+      if (identifiers != null) {
+        rpc.setDeletedIdentifiers(identifiers);
+      }
+
       send(rpc);
       return rpc;
+    }
+
+    @Override public void handleException(Exception cce, EventLoop el)
+    {
+      logger.info("got an exception {} on {}", cce, this);
+      super.handleException(cce, el);
+    }
+
+    @Override public void disconnected()
+    {
+      logger.info("disconnected client {}", this);
+      super.disconnected();
+    }
+
+    void notify(Exception ex) {
+      RR rr = new RR();
+      rr.exception = ex;
+
+      Iterator<RPCFuture> iterator = futureResponses.iterator();
+      while (iterator.hasNext()) {
+        RPCFuture next = iterator.next();
+        next.rr.set(rr);
+        synchronized (next.rpc) {
+          next.rpc.notifyAll();
+        }
+      }
+
+      futureResponses.clear();
     }
   }
 

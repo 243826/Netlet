@@ -22,6 +22,7 @@ public class DelegationTransport implements InvocationHandler, Closeable
   private final ConnectionAgent agent;
   private final TimeoutPolicy policy;
 
+  private final ConcurrentLinkedQueue<Object> deletedIdentifiers;
   private final WeakIdentityHashMap<Object, Object> identityMap;
 
   public DelegationTransport(ConnectionAgent agent,
@@ -30,7 +31,8 @@ public class DelegationTransport implements InvocationHandler, Closeable
                              StatefulStreamCodec<Object> serdes,
                              Executor executor)
   {
-    identityMap = new WeakIdentityHashMap<>();
+    deletedIdentifiers = new ConcurrentLinkedQueue<>();
+    identityMap = new WeakIdentityHashMap<>(1, v -> deletedIdentifiers.add(v));
 
     this.agent = agent;
     this.policy = policy;
@@ -57,11 +59,26 @@ public class DelegationTransport implements InvocationHandler, Closeable
       }
 
       logger.trace("calling {}", method);
-      ProxyProvider.RPCFuture future = new ProxyProvider.RPCFuture(client.send(identity, method, args));
+      Object[] deletedIdentifiers;
+      if (this.deletedIdentifiers.isEmpty()) {
+        deletedIdentifiers = null;
+      } else {
+        deletedIdentifiers = this.deletedIdentifiers.toArray();
+        logger.debug("requesting deletion of objects with identifiers = {}", this.deletedIdentifiers);
+      }
+      ProxyProvider.RPCFuture future = new ProxyProvider.RPCFuture(client.send(identity, method, args, deletedIdentifiers));
       futureResponses.add(future);
 
       try {
-        return future.get(policy.getTimeoutMillis(), TimeUnit.MILLISECONDS);
+        final Object response = future.get(policy.getTimeoutMillis(), TimeUnit.MILLISECONDS);
+        if (deletedIdentifiers != null) {
+          for (Object identifier :  deletedIdentifiers) {
+            if (!this.deletedIdentifiers.remove(identifier)) {
+              logger.warn("identifier {} just removed from the list is missing from the list!", identifier);
+            }
+          }
+        }
+        return response;
       }
       catch (TimeoutException ex) {
         policy.handleTimeout(this, ex);

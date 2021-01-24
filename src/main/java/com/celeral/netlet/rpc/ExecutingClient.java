@@ -17,12 +17,14 @@ package com.celeral.netlet.rpc;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.celeral.netlet.EventLoop;
 import com.celeral.netlet.rpc.methodserializer.ExternalizableMethodSerializer;
 import com.celeral.utils.Throwables;
 
@@ -56,6 +58,17 @@ public class ExecutingClient extends Client<Client.RPC>
   @SuppressWarnings("UseSpecificCatch")
   public void onMessage(Client.RPC message)
   {
+    ArrayList<Object> deletedIdentifiers = null;
+    if (message.deletedIdentifiers != null) {
+      deletedIdentifiers = new ArrayList<>(message.deletedIdentifiers.length);
+      for (Object identifier : message.deletedIdentifiers) {
+        if (beanFactory.contains(identifier)) {
+          beanFactory.destroy(identifier);
+          deletedIdentifiers.add(identifier);
+        }
+      }
+    }
+
     Client.RR rr;
     Method method = null;
 
@@ -152,6 +165,10 @@ public class ExecutingClient extends Client<Client.RPC>
       rr = new Client.RR(message.id, null, ex);
     }
 
+    if (deletedIdentifiers != null && !deletedIdentifiers.isEmpty()) {
+      rr.removedIdentifiers = deletedIdentifiers.toArray();
+    }
+
     logger.trace("responding to {}", method);
     send(rr);
   }
@@ -159,6 +176,17 @@ public class ExecutingClient extends Client<Client.RPC>
   protected Object getContext(Object object, Method method, Class<?> contextType)
   {
     return null;
+  }
+
+  @Override public void disconnected()
+  {
+    logger.info("disconnected {}!", this);
+    super.disconnected();
+  }
+
+  @Override public void handleException(Exception cce, EventLoop el)
+  {
+    logger.info("connection dropped for client {} - execution id = {}", this, Thread.currentThread(), cce);
   }
 
   private static final Logger logger = LogManager.getLogger(ExecutingClient.class);
